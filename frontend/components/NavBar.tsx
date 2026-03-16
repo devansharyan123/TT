@@ -6,7 +6,7 @@ import { CalendarDays, LayoutGrid } from "lucide-react";
 import { motion } from "framer-motion";
 
 const links = [
-  { href: "/", label: "Today", icon: CalendarDays },
+  { href: "/today", label: "Today", icon: CalendarDays },
   { href: "/schedule", label: "Schedule", icon: LayoutGrid },
 ];
 

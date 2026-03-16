@@ -20,6 +20,7 @@ export interface Task {
   // Shared
   completed: boolean;
   date: string; // YYYY-MM-DD
+  section?: string;
 }
 
 export interface DailySummary {

@@ -4,9 +4,10 @@ import { useEffect, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Plus, CalendarRange, Zap, X, Clock, Hash } from "lucide-react";
 import WeekTaskChip from "@/components/WeekTaskChip";
-import CreateWeekTaskModal, { WeekCreationResult } from "@/components/CreateWeekTaskModal";
+import CreateWeekTaskModal, { WeekCreationResult } from "../../components/CreateWeekTaskModal";
 import { Task } from "@/lib/types";
 import { fetchWeekTasks, createTasksBulk, deleteTask, updateTask } from "@/lib/api";
+import { getSelectedSection, SECTION_EVENT } from "@/lib/sections";
 
 /* ------------------------------------------------------------------ */
 /*  Utilities                                                           */
@@ -369,15 +370,26 @@ export default function SchedulePage() {
   const [modalDay, setModalDay] = useState<number | null>(null); // null = closed
   const [editingTask, setEditingTask] = useState<{ task: Task; date: string } | null>(null);
   const [extraRows, setExtraRows] = useState(0);
+  const [selectedSection, setSelectedSection] = useState("Work");
   const today = isoToday();
+
+  useEffect(() => {
+    setSelectedSection(getSelectedSection());
+    const listener = (e: Event) => {
+      const custom = e as CustomEvent<{ section?: string }>;
+      setSelectedSection(custom.detail?.section ?? getSelectedSection());
+    };
+    window.addEventListener(SECTION_EVENT, listener);
+    return () => window.removeEventListener(SECTION_EVENT, listener);
+  }, []);
 
   /* ---- Load ---- */
 
   const loadAll = useCallback(async () => {
     try {
-      const all = await fetchWeekTasks(WEEK_DATES);
+      const scoped = await fetchWeekTasks(WEEK_DATES, selectedSection);
       const byDay: Record<string, Task[]> = Object.fromEntries(WEEK_DATES.map((d) => [d, []]));
-      for (const t of all) {
+      for (const t of scoped) {
         if (byDay[t.date]) byDay[t.date].push(t);
       }
       // Sort each day by scheduledTime
@@ -390,7 +402,7 @@ export default function SchedulePage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [selectedSection]);
 
   useEffect(() => { loadAll(); }, [loadAll]);
 
@@ -398,11 +410,11 @@ export default function SchedulePage() {
 
   const handleModalConfirm = async (result: WeekCreationResult) => {
     setModalDay(null);
-    const { entries } = result;
+    const { draft, selectedDayIdxs } = result;
 
-    if (entries.length === 0) return;
+    if (selectedDayIdxs.length === 0) return;
 
-    const payload = entries.map(({ dayIdx, draft }) => ({
+    const payload = selectedDayIdxs.map((dayIdx: number) => ({
       title: draft.title,
       type: draft.type,
       allocatedMinutes: draft.allocatedMinutes,
@@ -412,6 +424,7 @@ export default function SchedulePage() {
       endTime: draft.endTime,
       tags: draft.tags,
       date: WEEK_DATES[dayIdx],
+      section: selectedSection,
       ...(draft.type === "quantity" ? { currentQuantity: 0 } : {}),
     }));
 
@@ -492,6 +505,7 @@ export default function SchedulePage() {
             <span>{new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" })}</span>
           </div>
           <h1 className="text-3xl font-bold text-white tracking-tight">Timetable</h1>
+          <p className="text-xs text-blue-200/70 mt-1">Section: {selectedSection}</p>
         </div>
 
         <motion.button

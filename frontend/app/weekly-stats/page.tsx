@@ -19,8 +19,7 @@ import {
 import { Flame, Trophy } from "lucide-react";
 import { fetchTasks } from "@/lib/api";
 import { Task } from "@/lib/types";
-
-const STREAK_STORAGE_KEY = "tt.streak.v1";
+import { getSelectedSection, SECTION_EVENT, getStreakStorageKey } from "@/lib/sections";
 
 interface StreakState {
   current: number;
@@ -52,10 +51,10 @@ function completionPercent(tasks: Task[]): number {
   return Math.round((done / tasks.length) * 100);
 }
 
-function readStreak(): StreakState {
+function readStreak(section: string): StreakState {
   if (typeof window === "undefined") return { current: 0, best: 0 };
   try {
-    const raw = localStorage.getItem(STREAK_STORAGE_KEY);
+    const raw = localStorage.getItem(getStreakStorageKey(section));
     if (!raw) return { current: 0, best: 0 };
     const parsed = JSON.parse(raw) as { current?: number; best?: number };
     return { current: parsed.current ?? 0, best: parsed.best ?? 0 };
@@ -77,12 +76,23 @@ const TIME_BUCKETS = [
 export default function WeeklyStatsPage() {
   const [streak, setStreak] = useState<StreakState>({ current: 0, best: 0 });
   const [loading, setLoading] = useState(true);
+  const [selectedSection, setSelectedSection] = useState("Work");
   const [weekByDate, setWeekByDate] = useState<Record<string, Task[]>>({});
   const [monthByDate, setMonthByDate] = useState<Record<string, Task[]>>({});
 
   useEffect(() => {
+    setSelectedSection(getSelectedSection());
+    const listener = (e: Event) => {
+      const custom = e as CustomEvent<{ section?: string }>;
+      setSelectedSection(custom.detail?.section ?? getSelectedSection());
+    };
+    window.addEventListener(SECTION_EVENT, listener);
+    return () => window.removeEventListener(SECTION_EVENT, listener);
+  }, []);
+
+  useEffect(() => {
     const run = async () => {
-      setStreak(readStreak());
+      setStreak(readStreak(selectedSection));
 
       const monday = startOfWeekMonday();
       const weekDates = Array.from({ length: 7 }, (_, i) => {
@@ -94,8 +104,8 @@ export default function WeeklyStatsPage() {
       const monthDates = Array.from({ length: 30 }, (_, i) => isoForOffset(-(29 - i)));
 
       const [weekResult, monthResult] = await Promise.all([
-        Promise.allSettled(weekDates.map((d) => fetchTasks(d))),
-        Promise.allSettled(monthDates.map((d) => fetchTasks(d))),
+        Promise.allSettled(weekDates.map((d) => fetchTasks(d, selectedSection))),
+        Promise.allSettled(monthDates.map((d) => fetchTasks(d, selectedSection))),
       ]);
 
       const weekMap: Record<string, Task[]> = {};
@@ -116,7 +126,7 @@ export default function WeeklyStatsPage() {
     };
 
     void run();
-  }, []);
+  }, [selectedSection]);
 
   const weekData = useMemo(() => {
     const monday = startOfWeekMonday();
@@ -217,6 +227,7 @@ export default function WeeklyStatsPage() {
       >
         <p className="text-xs uppercase tracking-[0.2em] text-white/40 mb-2">Weekly Stats</p>
         <h1 className="text-3xl font-bold text-white">Performance Command Center</h1>
+        <p className="text-xs text-blue-200/70 mt-1">Section: {selectedSection}</p>
       </motion.div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">

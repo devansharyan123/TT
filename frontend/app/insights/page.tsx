@@ -17,6 +17,7 @@ import {
 import { TriangleAlert, Sparkles } from "lucide-react";
 import { fetchTasks } from "@/lib/api";
 import { Task } from "@/lib/types";
+import { getSelectedSection, SECTION_EVENT } from "@/lib/sections";
 
 interface TaskAggregate {
   key: string;
@@ -55,13 +56,24 @@ const DISCIPLINE_QUOTES = [
 
 export default function InsightsPage() {
   const [loading, setLoading] = useState(true);
+  const [selectedSection, setSelectedSection] = useState("Work");
   const [dateTasks, setDateTasks] = useState<Record<string, Task[]>>({});
   const [selectedTaskKey, setSelectedTaskKey] = useState<string | null>(null);
 
   useEffect(() => {
+    setSelectedSection(getSelectedSection());
+    const listener = (e: Event) => {
+      const custom = e as CustomEvent<{ section?: string }>;
+      setSelectedSection(custom.detail?.section ?? getSelectedSection());
+    };
+    window.addEventListener(SECTION_EVENT, listener);
+    return () => window.removeEventListener(SECTION_EVENT, listener);
+  }, []);
+
+  useEffect(() => {
     const run = async () => {
       const dates = Array.from({ length: 14 }, (_, i) => isoForOffset(-(13 - i)));
-      const result = await Promise.allSettled(dates.map((d) => fetchTasks(d)));
+      const result = await Promise.allSettled(dates.map((d) => fetchTasks(d, selectedSection)));
       const map: Record<string, Task[]> = {};
       dates.forEach((d, i) => {
         const r = result[i];
@@ -71,7 +83,7 @@ export default function InsightsPage() {
       setLoading(false);
     };
     void run();
-  }, []);
+  }, [selectedSection]);
 
   const overallPerformance = useMemo(() => {
     const all = Object.values(dateTasks).flat();
@@ -143,6 +155,7 @@ export default function InsightsPage() {
       >
         <p className="text-xs uppercase tracking-[0.2em] text-white/40 mb-2">Insights</p>
         <h1 className="text-3xl font-bold text-white">Underperformance Radar</h1>
+        <p className="text-xs text-blue-200/70 mt-1">Section: {selectedSection}</p>
       </motion.div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-3 mb-4">
@@ -178,7 +191,7 @@ export default function InsightsPage() {
               className="rounded-xl p-3"
               style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}
             >
-              <p className="text-sm text-white/90 leading-relaxed">&ldquo;{quote.text}&rdquo;</p>
+              <p className="text-sm text-white/90 leading-relaxed">"{quote.text}"</p>
               <p className="text-xs text-blue-200/75 mt-2">{quote.author}</p>
               <p className="text-xs text-white/40 mt-3">
                 {overallPerformance >= 70
