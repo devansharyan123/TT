@@ -20,6 +20,7 @@ function initials(name: string): string {
 export default function AuthMenu({ compact = false }: { compact?: boolean }) {
   const router = useRouter();
   const [authOpen, setAuthOpen] = useState(false);
+  const [authMode, setAuthMode] = useState<"login" | "signup">("login");
   const [menuOpen, setMenuOpen] = useState(false);
   const [user, setUser] = useState(getStoredUser());
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -71,18 +72,45 @@ export default function AuthMenu({ compact = false }: { compact?: boolean }) {
   if (!user) {
     return (
       <>
-        <button
-          onClick={() => setAuthOpen(true)}
-          className={compact ? "rounded-lg px-3 py-1.5 text-xs" : "rounded-xl px-3.5 py-2 text-sm font-semibold"}
-          style={{
-            background: "rgba(96,165,250,0.18)",
-            border: "1px solid rgba(96,165,250,0.3)",
-            color: "rgba(147,197,253,1)",
-          }}
-        >
-          Login
-        </button>
-        <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} onAuthed={() => router.push("/today")} />
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              setAuthMode("login");
+              setAuthOpen(true);
+            }}
+            className={compact ? "rounded-lg px-3 py-1.5 text-xs" : "rounded-xl px-3.5 py-2 text-sm font-semibold"}
+            style={{
+              background: "rgba(96,165,250,0.18)",
+              border: "1px solid rgba(96,165,250,0.3)",
+              color: "rgba(147,197,253,1)",
+            }}
+          >
+            Login
+          </button>
+
+          {!compact && (
+            <button
+              onClick={() => {
+                setAuthMode("signup");
+                setAuthOpen(true);
+              }}
+              className="rounded-xl px-3.5 py-2 text-sm font-semibold"
+              style={{
+                background: "rgba(255,255,255,0.08)",
+                border: "1px solid rgba(255,255,255,0.16)",
+                color: "rgba(255,255,255,0.85)",
+              }}
+            >
+              Sign up
+            </button>
+          )}
+        </div>
+        <AuthModal
+          open={authOpen}
+          defaultMode={authMode}
+          onClose={() => setAuthOpen(false)}
+          onAuthed={() => router.push("/today")}
+        />
       </>
     );
   }

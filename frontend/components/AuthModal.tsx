@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { X, Mail, Lock, UserRound } from "lucide-react";
 import { getGoogleAuthUrl, loginWithEmail, signupWithEmail } from "@/lib/auth-client";
@@ -24,6 +24,12 @@ export default function AuthModal({
   const [password, setPassword] = useState("");
   const [isBusy, setIsBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    setMode(defaultMode);
+    setError(null);
+  }, [defaultMode, open]);
 
   if (!open) return null;
 

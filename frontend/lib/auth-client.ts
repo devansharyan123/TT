@@ -1,4 +1,11 @@
-const BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
+function normalizeApiBase(raw: string | undefined): string {
+  const fallback = "http://localhost:4000/api";
+  const value = (raw || fallback).trim().replace(/\/+$/, "");
+  if (/\/api$/i.test(value)) return value;
+  return `${value}/api`;
+}
+
+const BASE = normalizeApiBase(process.env.NEXT_PUBLIC_API_URL);
 
 export const AUTH_EVENT = "tt:auth-changed";
 
@@ -65,6 +72,13 @@ async function parseError(res: Response): Promise<string> {
   }
 }
 
+function asNetworkError(err: unknown): Error {
+  if (err instanceof TypeError) {
+    return new Error(`Cannot reach API at ${BASE}. Check backend server and CORS settings.`);
+  }
+  return err instanceof Error ? err : new Error("Network request failed");
+}
+
 async function refreshAccessToken(): Promise<string | null> {
   const existing = getStoredSession();
   if (!existing?.refreshToken) return null;
@@ -110,11 +124,16 @@ export async function authFetch(input: string, init?: RequestInit): Promise<Resp
 }
 
 async function postAuth(path: string, body: Record<string, unknown>): Promise<AuthSession> {
-  const res = await fetch(`${BASE}${path}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${BASE}${path}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  } catch (err) {
+    throw asNetworkError(err);
+  }
 
   if (!res.ok) {
     throw new Error(await parseError(res));
@@ -140,7 +159,12 @@ export function signupWithEmail(email: string, password: string, displayName?: s
 
 export async function getGoogleAuthUrl(redirectTo: string): Promise<string> {
   const state = encodeURIComponent(JSON.stringify({ redirectTo }));
-  const res = await fetch(`${BASE}/auth/google/start?state=${state}`);
+  let res: Response;
+  try {
+    res = await fetch(`${BASE}/auth/google/start?state=${state}`);
+  } catch (err) {
+    throw asNetworkError(err);
+  }
   if (!res.ok) throw new Error(await parseError(res));
   const data = (await res.json()) as { authUrl: string };
   return data.authUrl;
@@ -150,7 +174,12 @@ export async function exchangeGoogleCallback(code: string, state?: string): Prom
   const query = new URLSearchParams();
   query.set("code", code);
   if (state) query.set("state", state);
-  const res = await fetch(`${BASE}/auth/google/callback?${query.toString()}`);
+  let res: Response;
+  try {
+    res = await fetch(`${BASE}/auth/google/callback?${query.toString()}`);
+  } catch (err) {
+    throw asNetworkError(err);
+  }
   if (!res.ok) throw new Error(await parseError(res));
   const data = (await res.json()) as AuthResult;
   const session: AuthSession = {

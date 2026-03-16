@@ -11,8 +11,7 @@ const client_1 = require("@prisma/client");
 // Required for WebSocket connections in Node.js
 serverless_1.neonConfig.webSocketConstructor = ws_1.default;
 function createPrismaClient() {
-    const pool = new serverless_1.Pool({ connectionString: process.env.DATABASE_URL });
-    const adapter = new adapter_neon_1.PrismaNeon(pool);
+    const adapter = new adapter_neon_1.PrismaNeon({ connectionString: process.env.DATABASE_URL });
     return new client_1.PrismaClient({
         adapter,
         log: process.env.NODE_ENV === "development" ? ["warn", "error"] : ["error"],

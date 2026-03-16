@@ -16,6 +16,7 @@ const highlights = [
 export default function LandingPage() {
   const router = useRouter();
   const [authOpen, setAuthOpen] = useState(false);
+  const [authMode, setAuthMode] = useState<"login" | "signup">("login");
   const [isAuthed, setIsAuthed] = useState(false);
 
   useEffect(() => {
@@ -68,7 +69,14 @@ export default function LandingPage() {
           className="mt-8 flex flex-wrap items-center gap-3"
         >
           <button
-            onClick={() => (isAuthed ? router.push("/today") : setAuthOpen(true))}
+            onClick={() => {
+              if (isAuthed) {
+                router.push("/today");
+                return;
+              }
+              setAuthMode("login");
+              setAuthOpen(true);
+            }}
             className="rounded-xl px-5 py-3 text-sm font-semibold inline-flex items-center gap-2"
             style={{
               background: "rgba(96,165,250,0.25)",
@@ -81,7 +89,14 @@ export default function LandingPage() {
           </button>
 
           <button
-            onClick={() => router.push("/timetable")}
+            onClick={() => {
+              if (isAuthed) {
+                router.push("/timetable");
+                return;
+              }
+              setAuthMode("signup");
+              setAuthOpen(true);
+            }}
             className="rounded-xl px-5 py-3 text-sm font-semibold"
             style={{
               background: "rgba(255,255,255,0.08)",
@@ -89,7 +104,7 @@ export default function LandingPage() {
               color: "rgba(255,255,255,0.85)",
             }}
           >
-            Preview Timetable
+            {isAuthed ? "Preview Timetable" : "Sign Up Free"}
           </button>
         </motion.div>
 
@@ -123,7 +138,12 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} onAuthed={() => router.push("/today")} />
+      <AuthModal
+        open={authOpen}
+        defaultMode={authMode}
+        onClose={() => setAuthOpen(false)}
+        onAuthed={() => router.push("/today")}
+      />
     </main>
   );
 }
