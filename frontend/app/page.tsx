@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { CalendarDays, Plus, Zap, CheckCircle2, TrendingUp } from "lucide-react";
+import { CalendarDays, Plus, Zap, CheckCircle2, TrendingUp, Flame, Shield, TriangleAlert } from "lucide-react";
 import TaskCard from "@/components/TaskCard";
 import { Task, DailySummary } from "@/lib/types";
 import { fetchTasks, updateTask, deleteTask, createTask } from "@/lib/api";
@@ -14,6 +14,91 @@ const today = new Date().toLocaleDateString("en-US", {
 });
 
 const todayISO = new Date().toISOString().split("T")[0];
+const STREAK_STORAGE_KEY = "tt.streak.v1";
+const DAILY_GOAL_PERCENT = 70;
+const STREAK_SAVE_MILESTONE_DAYS = 15;
+
+interface StreakDayRecord {
+  completionPercent: number;
+  success: boolean;
+  saveUsed: boolean;
+}
+
+interface StreakState {
+  current: number;
+  best: number;
+  streakSaves: number;
+  consecutiveSuccessDays: number;
+  lastSaveUsedDate?: string;
+  history: Record<string, StreakDayRecord>;
+}
+
+const INITIAL_STREAK: StreakState = {
+  current: 0,
+  best: 0,
+  streakSaves: 0,
+  consecutiveSuccessDays: 0,
+  history: {},
+};
+
+const LOST_QUOTES = [
+  {
+    author: "Marcus Aurelius",
+    text: "Waste no more time arguing what a good man should be. Be one.",
+  },
+  {
+    author: "Kobe Bryant",
+    text: "Rest at the end, not in the middle.",
+  },
+];
+
+const DANGER_QUOTES = [
+  {
+    author: "Marcus Aurelius",
+    text: "You have power over your mind, not outside events.",
+  },
+  {
+    author: "Kobe Bryant",
+    text: "The moment you give up is the moment you let someone else win.",
+  },
+];
+
+function isoOffset(days: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return d.toISOString().split("T")[0];
+}
+
+function getPastIsoDates(days: number): string[] {
+  return Array.from({ length: days }, (_, i) => isoOffset(-i)).reverse();
+}
+
+function completionPercentForTasks(dayTasks: Task[]): number {
+  if (dayTasks.length === 0) return 0;
+  const completed = dayTasks.filter((t) => t.completed).length;
+  return Math.min(100, Math.round((completed / dayTasks.length) * 100));
+}
+
+function readStreakState(): StreakState {
+  if (typeof window === "undefined") return INITIAL_STREAK;
+  try {
+    const raw = localStorage.getItem(STREAK_STORAGE_KEY);
+    if (!raw) return INITIAL_STREAK;
+    const parsed = JSON.parse(raw) as StreakState;
+    return {
+      ...INITIAL_STREAK,
+      ...parsed,
+      history: parsed.history ?? {},
+    };
+  } catch {
+    return INITIAL_STREAK;
+  }
+}
+
+function writeStreakState(state: StreakState) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(STREAK_STORAGE_KEY, JSON.stringify(state));
+}
 
 function computeSummary(tasks: Task[]): DailySummary {
   const total = tasks.length;
@@ -73,6 +158,11 @@ export default function TodayPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [streak, setStreak] = useState<StreakState>(INITIAL_STREAK);
+  const [streakEvent, setStreakEvent] = useState<string | null>(null);
+  const [dangerAlerts, setDangerAlerts] = useState<string[]>([]);
+  const [lowConsistencyAlerts, setLowConsistencyAlerts] = useState<string[]>([]);
+  const [quote, setQuote] = useState<{ author: string; text: string } | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [newType, setNewType] = useState<"timed" | "quantity">("timed");
@@ -82,24 +172,136 @@ export default function TodayPage() {
 
   const summary = computeSummary(tasks);
 
+  const evaluateStreakSignals = useCallback(async (todayTasks: Task[]) => {
+    const weekDates = getPastIsoDates(7);
+    const weekResult = await Promise.allSettled(weekDates.map((d) => fetchTasks(d)));
+    const weekByDate: Record<string, Task[]> = {};
+    weekDates.forEach((d, idx) => {
+      const v = weekResult[idx];
+      weekByDate[d] = v.status === "fulfilled" ? v.value : [];
+    });
+
+    const todayPercent = completionPercentForTasks(todayTasks);
+    const yesterdayIso = isoOffset(-1);
+    const yesterdayPercent = completionPercentForTasks(weekByDate[yesterdayIso] ?? []);
+
+    const warnings: string[] = [];
+    if (todayPercent >= DAILY_GOAL_PERCENT && todayPercent < yesterdayPercent) {
+      warnings.push(`Streak in Danger: ${todayPercent}% today is lower than yesterday's ${yesterdayPercent}%.`);
+    }
+    if (todayPercent >= DAILY_GOAL_PERCENT && todayPercent <= DAILY_GOAL_PERCENT + 4) {
+      warnings.push("Streak in Danger: you're hovering close to the 70% floor.");
+    }
+    setDangerAlerts(warnings);
+
+    const consistencyMap: Record<string, { total: number; completed: number; label: string }> = {};
+    for (const dayTasks of Object.values(weekByDate)) {
+      for (const t of dayTasks) {
+        const key = t.title.trim().toLowerCase();
+        if (!consistencyMap[key]) consistencyMap[key] = { total: 0, completed: 0, label: t.title };
+        consistencyMap[key].total += 1;
+        if (t.completed) consistencyMap[key].completed += 1;
+      }
+    }
+    const consistencyAlerts = Object.values(consistencyMap)
+      .map((x) => ({ ...x, pct: x.total > 0 ? Math.round((x.completed / x.total) * 100) : 0 }))
+      .filter((x) => x.total >= 2 && x.pct < 20)
+      .map((x) => `Consistency Alert: \"${x.label}\" is at ${x.pct}% this week.`);
+    setLowConsistencyAlerts(consistencyAlerts);
+
+    const currentState = readStreakState();
+    if (currentState.history[todayISO]) {
+      const updatedHistory = {
+        ...currentState.history,
+        [todayISO]: {
+          ...currentState.history[todayISO],
+          completionPercent: todayPercent,
+        },
+      };
+      const updatedState = { ...currentState, history: updatedHistory };
+      writeStreakState(updatedState);
+      setStreak(updatedState);
+      if (warnings.length > 0) {
+        setQuote(DANGER_QUOTES[todayPercent % DANGER_QUOTES.length]);
+      }
+      return;
+    }
+
+    const successToday = todayPercent >= DAILY_GOAL_PERCENT;
+    let next = { ...currentState, history: { ...currentState.history } };
+
+    if (successToday) {
+      next.current += 1;
+      next.consecutiveSuccessDays += 1;
+      next.best = Math.max(next.best, next.current);
+      if (next.consecutiveSuccessDays % STREAK_SAVE_MILESTONE_DAYS === 0) {
+        next.streakSaves += 1;
+      }
+      next.history[todayISO] = {
+        completionPercent: todayPercent,
+        success: true,
+        saveUsed: false,
+      };
+      setStreakEvent(`Streak up: ${next.current} day${next.current === 1 ? "" : "s"}.`);
+      if (warnings.length > 0) {
+        setQuote(DANGER_QUOTES[todayPercent % DANGER_QUOTES.length]);
+      } else {
+        setQuote(null);
+      }
+    } else {
+      const canUseSave = next.streakSaves > 0 && next.lastSaveUsedDate !== yesterdayIso;
+      if (canUseSave) {
+        next.streakSaves -= 1;
+        next.lastSaveUsedDate = todayISO;
+        next.history[todayISO] = {
+          completionPercent: todayPercent,
+          success: false,
+          saveUsed: true,
+        };
+        setStreakEvent("Streak Save activated automatically.");
+        setQuote(DANGER_QUOTES[todayPercent % DANGER_QUOTES.length]);
+      } else {
+        next.current = 0;
+        next.consecutiveSuccessDays = 0;
+        next.history[todayISO] = {
+          completionPercent: todayPercent,
+          success: false,
+          saveUsed: false,
+        };
+        setStreakEvent("Streak lost. Reset to 0.");
+        setQuote(LOST_QUOTES[todayPercent % LOST_QUOTES.length]);
+      }
+    }
+
+    writeStreakState(next);
+    setStreak(next);
+  }, []);
+
   const loadTasks = useCallback(async () => {
     try {
       const data = await fetchTasks(todayISO);
       setTasks(data);
+      await evaluateStreakSignals(data);
     } catch {
       setError("Could not connect to server — showing demo data.");
-      setTasks(demoTasks());
+      const fallback = demoTasks();
+      setTasks(fallback);
+      await evaluateStreakSignals(fallback);
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [evaluateStreakSignals]);
 
   useEffect(() => {
     loadTasks();
   }, [loadTasks]);
 
   const handleUpdate = async (id: string, updates: Partial<Task>) => {
-    setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, ...updates } : t)));
+    setTasks((prev) => {
+      const next = prev.map((t) => (t.id === id ? { ...t, ...updates } : t));
+      void evaluateStreakSignals(next);
+      return next;
+    });
     try {
       await updateTask(id, updates);
     } catch {
@@ -108,7 +310,11 @@ export default function TodayPage() {
   };
 
   const handleDelete = async (id: string) => {
-    setTasks((prev) => prev.filter((t) => t.id !== id));
+    setTasks((prev) => {
+      const next = prev.filter((t) => t.id !== id);
+      void evaluateStreakSignals(next);
+      return next;
+    });
     try {
       await deleteTask(id);
     } catch {
@@ -130,9 +336,17 @@ export default function TodayPage() {
     setNewTitle("");
     try {
       const created = await createTask(partial);
-      setTasks((prev) => [...prev, created]);
+      setTasks((prev) => {
+        const next = [...prev, created];
+        void evaluateStreakSignals(next);
+        return next;
+      });
     } catch {
-      setTasks((prev) => [...prev, { id: crypto.randomUUID(), ...partial, completed: false } as Task]);
+      setTasks((prev) => {
+        const next = [...prev, { id: crypto.randomUUID(), ...partial, completed: false } as Task];
+        void evaluateStreakSignals(next);
+        return next;
+      });
     }
   };
 
@@ -154,6 +368,43 @@ export default function TodayPage() {
           <span>{today}</span>
         </div>
         <h1 className="text-3xl font-bold text-white tracking-tight">Today&apos;s Tasks</h1>
+
+        <motion.div
+          key={`streak-${streak.current}`}
+          initial={{ opacity: 0, y: -8, scale: 0.98 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: 0.35 }}
+          className="glass rounded-2xl p-4 mt-4"
+        >
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Flame size={16} className="text-amber-300" />
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.2em] text-white/35">Current Streak</p>
+                <p className="text-xl font-bold text-white">{streak.current} day{streak.current === 1 ? "" : "s"}</p>
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="text-xs text-white/35">Best: {streak.best}</p>
+              <p className="text-xs text-emerald-300/90 flex items-center justify-end gap-1">
+                <Shield size={12} /> Saves: {streak.streakSaves}
+              </p>
+            </div>
+          </div>
+          <AnimatePresence>
+            {streakEvent && (
+              <motion.p
+                key={streakEvent}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                className="text-xs text-white/60 mt-3"
+              >
+                {streakEvent}
+              </motion.p>
+            )}
+          </AnimatePresence>
+        </motion.div>
 
         {/* Daily summary card */}
         <motion.div
@@ -197,6 +448,58 @@ export default function TodayPage() {
 
       {/* Error banner */}
       <AnimatePresence>
+        {dangerAlerts.length > 0 && (
+          <motion.div
+            key="danger-alert"
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="glass rounded-xl px-4 py-3 mb-4 text-xs text-rose-200/90"
+            style={{ borderLeft: "3px solid rgba(251,113,133,0.6)" }}
+          >
+            <div className="flex items-center gap-2 mb-1">
+              <TriangleAlert size={12} className="flex-shrink-0" />
+              <span className="font-semibold">Streak in Danger</span>
+            </div>
+            {dangerAlerts.map((alert) => (
+              <p key={alert} className="text-rose-100/80">{alert}</p>
+            ))}
+          </motion.div>
+        )}
+
+        {lowConsistencyAlerts.length > 0 && (
+          <motion.div
+            key="consistency-alert"
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="glass rounded-xl px-4 py-3 mb-4 text-xs text-amber-100/90"
+            style={{ borderLeft: "3px solid rgba(251,191,36,0.6)" }}
+          >
+            <div className="flex items-center gap-2 mb-1">
+              <TriangleAlert size={12} className="flex-shrink-0" />
+              <span className="font-semibold">Task Consistency Risk</span>
+            </div>
+            {lowConsistencyAlerts.map((alert) => (
+              <p key={alert} className="text-amber-100/80">{alert}</p>
+            ))}
+          </motion.div>
+        )}
+
+        {quote && (
+          <motion.div
+            key={`${quote.author}-${quote.text}`}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            className="glass-strong rounded-2xl px-4 py-3 mb-4"
+            style={{ border: "1px solid rgba(248,113,113,0.25)" }}
+          >
+            <p className="text-sm text-white/85 leading-relaxed">&ldquo;{quote.text}&rdquo;</p>
+            <p className="text-xs text-rose-200/75 mt-1">{quote.author}</p>
+          </motion.div>
+        )}
+
         {error && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
