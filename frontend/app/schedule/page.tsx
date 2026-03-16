@@ -8,6 +8,7 @@ import CreateWeekTaskModal, { WeekCreationResult } from "../../components/Create
 import { Task } from "@/lib/types";
 import { fetchWeekTasks, createTasksBulk, deleteTask, updateTask } from "@/lib/api";
 import { getSelectedSection, SECTION_EVENT } from "@/lib/sections";
+import { useAuthGuard } from "@/hooks/useAuthGuard";
 
 /* ------------------------------------------------------------------ */
 /*  Utilities                                                           */
@@ -362,6 +363,7 @@ function EditWeekTaskModal({
 /* ------------------------------------------------------------------ */
 
 export default function SchedulePage() {
+  useAuthGuard();
   const [tasksByDay, setTasksByDay] = useState<Record<string, Task[]>>(
     Object.fromEntries(WEEK_DATES.map((d) => [d, []]))
   );

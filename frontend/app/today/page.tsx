@@ -7,6 +7,7 @@ import TaskCard from "@/components/TaskCard";
 import { Task, DailySummary } from "@/lib/types";
 import { fetchTasks, updateTask, deleteTask, createTask } from "@/lib/api";
 import { getSelectedSection, SECTION_EVENT, getStreakStorageKey } from "@/lib/sections";
+import { useAuthGuard } from "@/hooks/useAuthGuard";
 
 const today = new Date().toLocaleDateString("en-US", {
   weekday: "long",
@@ -159,6 +160,7 @@ function Stat({ icon, label, value, color }: { icon: React.ReactNode; label: str
 }
 
 export default function TodayPage() {
+  useAuthGuard();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

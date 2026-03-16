@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useAuthGuard } from "@/hooks/useAuthGuard";
 import {
   Bar,
   BarChart,
@@ -55,6 +56,7 @@ const DISCIPLINE_QUOTES = [
 ];
 
 export default function InsightsPage() {
+  useAuthGuard();
   const [loading, setLoading] = useState(true);
   const [selectedSection, setSelectedSection] = useState("Work");
   const [dateTasks, setDateTasks] = useState<Record<string, Task[]>>({});

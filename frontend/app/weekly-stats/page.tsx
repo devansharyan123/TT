@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
+import { useAuthGuard } from "@/hooks/useAuthGuard";
 import {
   Area,
   AreaChart,
@@ -74,6 +75,7 @@ const TIME_BUCKETS = [
 ];
 
 export default function WeeklyStatsPage() {
+  useAuthGuard();
   const [streak, setStreak] = useState<StreakState>({ current: 0, best: 0 });
   const [loading, setLoading] = useState(true);
   const [selectedSection, setSelectedSection] = useState("Work");
