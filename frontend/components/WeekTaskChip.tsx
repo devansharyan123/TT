@@ -54,7 +54,7 @@ export default function WeekTaskChip({ task, onClick }: WeekTaskChipProps) {
       <div className="flex items-center justify-between gap-1 flex-wrap">
         {task.scheduledTime && (
           <span className="text-[10px] font-mono" style={{ color: "rgba(255,255,255,0.3)" }}>
-            {task.scheduledTime}
+            {task.endTime ? `${task.scheduledTime} - ${task.endTime}` : task.scheduledTime}
           </span>
         )}
         <span

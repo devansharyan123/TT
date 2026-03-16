@@ -2,11 +2,11 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, CalendarRange, Zap } from "lucide-react";
+import { Plus, CalendarRange, Zap, X, Clock, Hash } from "lucide-react";
 import WeekTaskChip from "@/components/WeekTaskChip";
 import CreateWeekTaskModal, { WeekCreationResult } from "@/components/CreateWeekTaskModal";
 import { Task } from "@/lib/types";
-import { fetchWeekTasks, createTasksBulk, deleteTask } from "@/lib/api";
+import { fetchWeekTasks, createTasksBulk, deleteTask, updateTask } from "@/lib/api";
 
 /* ------------------------------------------------------------------ */
 /*  Utilities                                                           */
@@ -28,12 +28,6 @@ const WEEK_DATES = getWeekDates();
 
 const DAY_SHORT = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const DAY_LONG  = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-
-function addMinutesToTime(time: string, delta: number): string {
-  const [h, m] = time.split(":").map(Number);
-  const total = ((h * 60 + m + delta) % (24 * 60) + 24 * 60) % (24 * 60);
-  return `${Math.floor(total / 60).toString().padStart(2, "0")}:${(total % 60).toString().padStart(2, "0")}`;
-}
 
 function isoToday(): string {
   return new Date().toISOString().split("T")[0];
@@ -172,6 +166,197 @@ function EmptyCell({ onAdd }: { onAdd: () => void }) {
 }
 
 /* ------------------------------------------------------------------ */
+/*  Edit modal                                                         */
+/* ------------------------------------------------------------------ */
+
+function EditWeekTaskModal({
+  task,
+  onClose,
+  onSave,
+  onDelete,
+}: {
+  task: Task;
+  onClose: () => void;
+  onSave: (updates: Partial<Task>) => void;
+  onDelete: () => void;
+}) {
+  const [title, setTitle] = useState(task.title);
+  const [type, setType] = useState<Task["type"]>(task.type);
+  const [allocatedMinutes, setAllocatedMinutes] = useState(task.allocatedMinutes ?? 45);
+  const [targetQuantity, setTargetQuantity] = useState(task.targetQuantity ?? 1);
+  const [unit, setUnit] = useState(task.unit ?? "reps");
+  const [scheduledTime, setScheduledTime] = useState(task.scheduledTime ?? "09:00");
+  const [endTime, setEndTime] = useState(task.endTime ?? "10:00");
+  const [tagsText, setTagsText] = useState((task.tags ?? []).join(", "));
+
+  const handleSave = () => {
+    const tags = tagsText
+      .split(",")
+      .map((t) => t.trim())
+      .filter(Boolean);
+
+    onSave({
+      title: title.trim() || "Untitled Task",
+      type,
+      allocatedMinutes: type === "timed" ? allocatedMinutes : undefined,
+      targetQuantity: type === "quantity" ? targetQuantity : undefined,
+      unit: type === "quantity" ? unit : "",
+      scheduledTime,
+      endTime,
+      tags,
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center px-4 pb-4 sm:pb-0">
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="absolute inset-0"
+        style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(4px)" }}
+        onClick={onClose}
+      />
+
+      <motion.div
+        initial={{ opacity: 0, y: 40, scale: 0.96 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 24, scale: 0.97 }}
+        transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+        className="relative w-full max-w-md glass-strong rounded-3xl overflow-hidden"
+        style={{ boxShadow: "0 24px 64px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.08)" }}
+      >
+        <div className="p-6 flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs text-white/35 uppercase tracking-widest mb-0.5">Weekly Task</p>
+              <h2 className="text-lg font-bold text-white">Edit Task</h2>
+            </div>
+            <button
+              onClick={onClose}
+              className="w-8 h-8 flex items-center justify-center rounded-xl transition-all hover:bg-white/8 active:scale-90"
+              style={{ color: "rgba(255,255,255,0.3)" }}
+            >
+              <X size={16} />
+            </button>
+          </div>
+
+          <input
+            type="text"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Task name..."
+            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder:text-white/25 outline-none focus:border-blue-400/40 transition-colors"
+          />
+
+          <div className="flex gap-2">
+            {(["timed", "quantity"] as const).map((t) => (
+              <button
+                key={t}
+                onClick={() => setType(t)}
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-semibold transition-all"
+                style={{
+                  background: type === t ? (t === "timed" ? "rgba(96,165,250,0.15)" : "rgba(167,139,250,0.15)") : "rgba(255,255,255,0.04)",
+                  border: `1px solid ${type === t ? (t === "timed" ? "rgba(96,165,250,0.35)" : "rgba(167,139,250,0.35)") : "rgba(255,255,255,0.07)"}`,
+                  color: type === t ? (t === "timed" ? "rgba(96,165,250,1)" : "rgba(167,139,250,1)") : "rgba(255,255,255,0.35)",
+                }}
+              >
+                {t === "timed" ? <Clock size={13} /> : <Hash size={13} />}
+                {t === "timed" ? "Timed" : "Quantity"}
+              </button>
+            ))}
+          </div>
+
+          {type === "timed" ? (
+            <div className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-xl px-4 py-3">
+              <Clock size={14} className="text-blue-400/60" />
+              <span className="text-xs text-white/40 flex-1">Duration</span>
+              <input
+                type="number"
+                value={allocatedMinutes}
+                min={5}
+                max={480}
+                onChange={(e) => setAllocatedMinutes(Number(e.target.value))}
+                className="w-16 bg-transparent text-sm text-white text-right outline-none"
+              />
+              <span className="text-xs text-white/35">min</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-xl px-4 py-3">
+              <Hash size={14} className="text-purple-400/60" />
+              <span className="text-xs text-white/40">Target</span>
+              <input
+                type="number"
+                value={targetQuantity}
+                min={1}
+                onChange={(e) => setTargetQuantity(Number(e.target.value))}
+                className="w-14 bg-transparent text-sm text-white text-right outline-none"
+              />
+              <input
+                type="text"
+                value={unit}
+                onChange={(e) => setUnit(e.target.value)}
+                placeholder="unit"
+                className="w-20 bg-white/8 border border-white/10 rounded-lg px-2 py-1 text-xs text-white placeholder:text-white/25 outline-none"
+              />
+            </div>
+          )}
+
+          <div className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-xl px-4 py-3">
+            <Clock size={14} className="text-white/30" />
+            <span className="text-xs text-white/40 flex-1">Scheduled time</span>
+            <input
+              type="time"
+              value={scheduledTime}
+              onChange={(e) => setScheduledTime(e.target.value)}
+              className="bg-transparent text-sm text-white outline-none"
+              style={{ colorScheme: "dark" }}
+            />
+          </div>
+
+          <div className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-xl px-4 py-3">
+            <Clock size={14} className="text-white/30" />
+            <span className="text-xs text-white/40 flex-1">End time</span>
+            <input
+              type="time"
+              value={endTime}
+              onChange={(e) => setEndTime(e.target.value)}
+              className="bg-transparent text-sm text-white outline-none"
+              style={{ colorScheme: "dark" }}
+            />
+          </div>
+
+          <input
+            type="text"
+            value={tagsText}
+            onChange={(e) => setTagsText(e.target.value)}
+            placeholder="Tags (comma separated)"
+            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder:text-white/25 outline-none focus:border-blue-400/40 transition-colors"
+          />
+
+          <div className="flex gap-2 pt-1">
+            <button
+              onClick={handleSave}
+              className="flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all active:scale-95"
+              style={{ background: "rgba(96,165,250,0.2)", border: "1px solid rgba(96,165,250,0.4)", color: "rgba(96,165,250,1)" }}
+            >
+              Save Changes
+            </button>
+            <button
+              onClick={onDelete}
+              className="px-4 py-2.5 rounded-xl text-sm font-semibold transition-all active:scale-95"
+              style={{ background: "rgba(239,68,68,0.16)", border: "1px solid rgba(239,68,68,0.35)", color: "rgba(248,113,113,1)" }}
+            >
+              Delete
+            </button>
+          </div>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /*  Page                                                                */
 /* ------------------------------------------------------------------ */
 
@@ -182,6 +367,7 @@ export default function SchedulePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [modalDay, setModalDay] = useState<number | null>(null); // null = closed
+  const [editingTask, setEditingTask] = useState<{ task: Task; date: string } | null>(null);
   const today = isoToday();
 
   /* ---- Load ---- */
@@ -211,32 +397,20 @@ export default function SchedulePage() {
 
   const handleModalConfirm = async (result: WeekCreationResult) => {
     setModalDay(null);
-    const { draft, startDayIdx, actions } = result;
+    const { entries } = result;
 
-    // Build list of (date, scheduledTime) pairs to create
-    const toCreate: { date: string; time: string }[] = [
-      { date: WEEK_DATES[startDayIdx], time: draft.scheduledTime },
-    ];
+    if (entries.length === 0) return;
 
-    for (const [dayIdxStr, action] of Object.entries(actions)) {
-      const di = Number(dayIdxStr);
-      if (action.type === "skip") continue;
-      const adjustedTime =
-        action.type === "shift"
-          ? addMinutesToTime(draft.scheduledTime, action.minutesDelta)
-          : draft.scheduledTime;
-      toCreate.push({ date: WEEK_DATES[di], time: adjustedTime });
-    }
-
-    const payload = toCreate.map(({ date, time }) => ({
+    const payload = entries.map(({ dayIdx, draft }) => ({
       title: draft.title,
       type: draft.type,
       allocatedMinutes: draft.allocatedMinutes,
       targetQuantity: draft.targetQuantity,
       unit: draft.unit,
-      scheduledTime: time,
+      scheduledTime: draft.scheduledTime,
+      endTime: draft.endTime,
       tags: draft.tags,
-      date,
+      date: WEEK_DATES[dayIdx],
       ...(draft.type === "quantity" ? { currentQuantity: 0 } : {}),
     }));
 
@@ -280,10 +454,25 @@ export default function SchedulePage() {
     }
   };
 
+  const handleSaveTaskEdits = async (id: string, date: string, updates: Partial<Task>) => {
+    setTasksByDay((prev) => ({
+      ...prev,
+      [date]: prev[date]
+        .map((t) => (t.id === id ? { ...t, ...updates } : t))
+        .sort((a, b) => (a.scheduledTime ?? "").localeCompare(b.scheduledTime ?? "")),
+    }));
+    setEditingTask(null);
+    try {
+      await updateTask(id, updates);
+    } catch {
+      // Optimistic update already shown.
+    }
+  };
+
   /* ---- Grid dimensions ---- */
 
   const maxRows = Math.max(1, ...WEEK_DATES.map((d) => tasksByDay[d]?.length ?? 0));
-  const gridRows = maxRows + 1; // always one trailing empty row
+  const gridRows = Math.max(7, maxRows);
 
   /* ---- Render ---- */
 
@@ -301,7 +490,7 @@ export default function SchedulePage() {
             <CalendarRange size={12} />
             <span>{new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" })}</span>
           </div>
-          <h1 className="text-3xl font-bold text-white tracking-tight">Weekly Schedule</h1>
+          <h1 className="text-3xl font-bold text-white tracking-tight">Timetable</h1>
         </div>
 
         <motion.button
@@ -393,7 +582,7 @@ export default function SchedulePage() {
                             >
                               <WeekTaskChip
                                 task={task}
-                                onClick={() => handleDeleteTask(task.id, date)}
+                                onClick={() => setEditingTask({ task, date })}
                               />
                             </motion.div>
                           ) : (
@@ -427,6 +616,18 @@ export default function SchedulePage() {
             weekDates={WEEK_DATES}
             onConfirm={handleModalConfirm}
             onClose={() => setModalDay(null)}
+          />
+        )}
+        {editingTask && (
+          <EditWeekTaskModal
+            key={`edit-${editingTask.task.id}`}
+            task={editingTask.task}
+            onClose={() => setEditingTask(null)}
+            onSave={(updates) => handleSaveTaskEdits(editingTask.task.id, editingTask.date, updates)}
+            onDelete={async () => {
+              await handleDeleteTask(editingTask.task.id, editingTask.date);
+              setEditingTask(null);
+            }}
           />
         )}
       </AnimatePresence>

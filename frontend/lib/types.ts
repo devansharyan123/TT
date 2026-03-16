@@ -15,6 +15,7 @@ export interface Task {
   unit?: string;
   // Schedule
   scheduledTime?: string; // "HH:MM"
+  endTime?: string; // "HH:MM"
   tags?: string[];
   // Shared
   completed: boolean;
@@ -36,5 +37,6 @@ export interface WeekTaskDraft {
   targetQuantity: number;
   unit: string;
   scheduledTime: string;
+  endTime: string;
   tags: string[];
 }

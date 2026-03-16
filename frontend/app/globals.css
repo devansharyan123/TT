@@ -13,7 +13,10 @@
 }
 
 body {
-  background: var(--background);
+  background:
+    radial-gradient(1200px 600px at -10% -10%, rgba(56, 189, 248, 0.16), transparent 50%),
+    radial-gradient(800px 500px at 110% 10%, rgba(251, 191, 36, 0.12), transparent 50%),
+    linear-gradient(180deg, #070b12 0%, #0a0f1a 100%);
   color: var(--foreground);
   font-family: var(--font-sans), system-ui, sans-serif;
   min-height: 100vh;
