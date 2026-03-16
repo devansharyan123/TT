@@ -105,14 +105,26 @@ export default function CreateWeekTaskModal({ startDayIdx = 0, weekDates: _weekD
   const [startTime, setStartTime] = useState("09:00");
   const [endTime, setEndTime] = useState("10:00");
   const [currentDayIdx, setCurrentDayIdx] = useState(startDayIdx);
-  const [entriesByDay, setEntriesByDay] = useState<Record<number, WeekTaskDraft>>({});
+  const [entriesByDay, setEntriesByDay] = useState<Record<number, WeekTaskDraft[]>>({});
+  const [currentDayDrafts, setCurrentDayDrafts] = useState<WeekTaskDraft[]>([]);
   const [validationError, setValidationError] = useState<string | null>(null);
 
   const hasValidRange = timeToMinutes(endTime) > timeToMinutes(startTime);
 
-  const buildDraft = (): WeekTaskDraft | null => {
+  const resetForm = () => {
+    setTitle("");
+    setType("timed");
+    setMinutes(45);
+    setTarget(10);
+    setUnit("reps");
+    setTags([]);
+    setStartTime("09:00");
+    setEndTime("10:00");
+  };
+
+  const buildDraft = (requireTitle = true): WeekTaskDraft | null => {
     if (!title.trim()) {
-      setValidationError("Task name is required.");
+      if (requireTitle) setValidationError("Task name is required.");
       return null;
     }
     if (!hasValidRange) {
@@ -132,42 +144,68 @@ export default function CreateWeekTaskModal({ startDayIdx = 0, weekDates: _weekD
     };
   };
 
-  const finalize = (finalEntries: Record<number, WeekTaskDraft>) => {
+  const collectDayDrafts = (): WeekTaskDraft[] | null => {
+    const list = [...currentDayDrafts];
+    const pending = buildDraft(false);
+    if (pending) list.push(pending);
+    if (list.length === 0) {
+      setValidationError("Add at least one task or Skip this day.");
+      return null;
+    }
+    return list;
+  };
+
+  const finalize = (finalEntries: Record<number, WeekTaskDraft[]>) => {
     const entries = Object.entries(finalEntries)
-      .map(([dayIdx, draft]) => ({ dayIdx: Number(dayIdx), draft }))
+      .flatMap(([dayIdx, drafts]) => drafts.map((draft) => ({ dayIdx: Number(dayIdx), draft })))
       .sort((a, b) => a.dayIdx - b.dayIdx);
     onConfirm({ entries });
   };
 
-  const moveOrFinalize = (nextDayIdx: number, updated: Record<number, WeekTaskDraft>) => {
+  const moveOrFinalize = (nextDayIdx: number, updated: Record<number, WeekTaskDraft[]>) => {
     if (nextDayIdx > 6) {
       finalize(updated);
       return;
     }
     setEntriesByDay(updated);
     setCurrentDayIdx(nextDayIdx);
+    setCurrentDayDrafts([]);
+    setValidationError(null);
+    resetForm();
+  };
+
+  const handleAddAnotherTask = () => {
+    const draft = buildDraft(true);
+    if (!draft) return;
+    setCurrentDayDrafts((prev) => [...prev, draft]);
+    setValidationError(null);
+    resetForm();
+  };
+
+  const removeDraft = (idx: number) => {
+    setCurrentDayDrafts((prev) => prev.filter((_, i) => i !== idx));
   };
 
   const handleNextDay = () => {
-    const draft = buildDraft();
-    if (!draft) return;
-    const updated = { ...entriesByDay, [currentDayIdx]: draft };
+    const drafts = collectDayDrafts();
+    if (!drafts) return;
+    const updated = { ...entriesByDay, [currentDayIdx]: drafts };
     moveOrFinalize(currentDayIdx + 1, updated);
   };
 
   const handleRepeatNextDay = () => {
-    const draft = buildDraft();
-    if (!draft) return;
+    const drafts = collectDayDrafts();
+    if (!drafts) return;
     const nextDayIdx = currentDayIdx + 1;
     if (nextDayIdx > 6) {
-      const updated = { ...entriesByDay, [currentDayIdx]: draft };
+      const updated = { ...entriesByDay, [currentDayIdx]: drafts };
       finalize(updated);
       return;
     }
     const updated = {
       ...entriesByDay,
-      [currentDayIdx]: draft,
-      [nextDayIdx]: draft,
+      [currentDayIdx]: drafts,
+      [nextDayIdx]: drafts,
     };
     moveOrFinalize(nextDayIdx + 1, updated);
   };
@@ -175,6 +213,7 @@ export default function CreateWeekTaskModal({ startDayIdx = 0, weekDates: _weekD
   const handleSkip = () => {
     const updated = { ...entriesByDay };
     delete updated[currentDayIdx];
+    setCurrentDayDrafts([]);
     moveOrFinalize(currentDayIdx + 1, updated);
   };
 
@@ -346,13 +385,48 @@ export default function CreateWeekTaskModal({ startDayIdx = 0, weekDates: _weekD
                   <p className="text-xs text-white/35 mb-2">Schedule progress</p>
                   <div className="flex gap-1.5 flex-wrap">
                     {DAY_LABELS.map((_, i) => (
-                      <DayBadge key={i} idx={i} active={i === currentDayIdx || !!entriesByDay[i]} />
+                      <DayBadge key={i} idx={i} active={i === currentDayIdx || (entriesByDay[i]?.length ?? 0) > 0} />
                     ))}
                   </div>
                 </div>
 
+                {currentDayDrafts.length > 0 && (
+                  <div>
+                    <p className="text-xs text-white/35 mb-2">Added for {DAY_FULL[currentDayIdx]}</p>
+                    <div className="flex flex-col gap-1.5 max-h-28 overflow-auto pr-1">
+                      {currentDayDrafts.map((d, idx) => (
+                        <div
+                          key={`${d.title}-${idx}`}
+                          className="flex items-center justify-between rounded-lg px-3 py-2"
+                          style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}
+                        >
+                          <p className="text-xs text-white/75 truncate">{d.title}</p>
+                          <button
+                            onClick={() => removeDraft(idx)}
+                            className="text-[10px] px-1.5 py-0.5 rounded-md"
+                            style={{ background: "rgba(239,68,68,0.18)", color: "rgba(252,165,165,1)" }}
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* Footer actions */}
-                <div className="grid grid-cols-3 gap-2 pt-1">
+                <div className="grid grid-cols-2 gap-2 pt-1">
+                  <button
+                    onClick={handleAddAnotherTask}
+                    className="py-2.5 rounded-xl text-xs font-semibold transition-all active:scale-95"
+                    style={{
+                      background: "rgba(167,139,250,0.16)",
+                      border: "1px solid rgba(167,139,250,0.35)",
+                      color: "rgba(196,181,253,1)",
+                    }}
+                  >
+                    Add Another Task
+                  </button>
                   <button
                     onClick={handleNextDay}
                     className="py-2.5 rounded-xl text-xs font-semibold transition-all active:scale-95"
@@ -364,6 +438,8 @@ export default function CreateWeekTaskModal({ startDayIdx = 0, weekDates: _weekD
                   >
                     Next Day
                   </button>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
                   <button
                     onClick={handleRepeatNextDay}
                     disabled={currentDayIdx >= 6}
@@ -374,7 +450,7 @@ export default function CreateWeekTaskModal({ startDayIdx = 0, weekDates: _weekD
                       color: "rgba(110,231,183,1)",
                     }}
                   >
-                    {currentDayIdx < 6 ? `Repeat same for ${DAY_FULL[currentDayIdx + 1]}` : "Repeat"}
+                    {currentDayIdx < 6 ? `Repeat for ${DAY_FULL[currentDayIdx + 1]}` : "Repeat"}
                   </button>
                   <button
                     onClick={handleSkip}

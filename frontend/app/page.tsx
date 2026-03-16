@@ -79,6 +79,10 @@ function completionPercentForTasks(dayTasks: Task[]): number {
   return Math.min(100, Math.round((completed / dayTasks.length) * 100));
 }
 
+function sortByScheduledTime(items: Task[]): Task[] {
+  return [...items].sort((a, b) => (a.scheduledTime ?? "").localeCompare(b.scheduledTime ?? ""));
+}
+
 function readStreakState(): StreakState {
   if (typeof window === "undefined") return INITIAL_STREAK;
   try {
@@ -280,12 +284,12 @@ export default function TodayPage() {
   const loadTasks = useCallback(async () => {
     try {
       const data = await fetchTasks(todayISO);
-      setTasks(data);
+      setTasks(sortByScheduledTime(data));
       await evaluateStreakSignals(data);
     } catch {
       setError("Could not connect to server — showing demo data.");
       const fallback = demoTasks();
-      setTasks(fallback);
+      setTasks(sortByScheduledTime(fallback));
       await evaluateStreakSignals(fallback);
     } finally {
       setIsLoading(false);
@@ -337,13 +341,13 @@ export default function TodayPage() {
     try {
       const created = await createTask(partial);
       setTasks((prev) => {
-        const next = [...prev, created];
+        const next = sortByScheduledTime([...prev, created]);
         void evaluateStreakSignals(next);
         return next;
       });
     } catch {
       setTasks((prev) => {
-        const next = [...prev, { id: crypto.randomUUID(), ...partial, completed: false } as Task];
+        const next = sortByScheduledTime([...prev, { id: crypto.randomUUID(), ...partial, completed: false } as Task]);
         void evaluateStreakSignals(next);
         return next;
       });

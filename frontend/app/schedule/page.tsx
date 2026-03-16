@@ -368,6 +368,7 @@ export default function SchedulePage() {
   const [error, setError] = useState<string | null>(null);
   const [modalDay, setModalDay] = useState<number | null>(null); // null = closed
   const [editingTask, setEditingTask] = useState<{ task: Task; date: string } | null>(null);
+  const [extraRows, setExtraRows] = useState(0);
   const today = isoToday();
 
   /* ---- Load ---- */
@@ -472,7 +473,7 @@ export default function SchedulePage() {
   /* ---- Grid dimensions ---- */
 
   const maxRows = Math.max(1, ...WEEK_DATES.map((d) => tasksByDay[d]?.length ?? 0));
-  const gridRows = Math.max(7, maxRows);
+  const gridRows = Math.max(7, maxRows + extraRows);
 
   /* ---- Render ---- */
 
@@ -528,7 +529,8 @@ export default function SchedulePage() {
       <div className="overflow-x-auto -mx-3 sm:mx-0 px-3 sm:px-0 pb-4">
         <div style={{ minWidth: 560 }}>
           {/* Day headers */}
-          <div className="grid gap-2 mb-2" style={{ gridTemplateColumns: "repeat(7, minmax(0, 1fr))" }}>
+          <div className="grid gap-2 mb-2" style={{ gridTemplateColumns: "52px repeat(7, minmax(0, 1fr))" }}>
+            <div className="glass rounded-2xl flex items-center justify-center text-[11px] text-white/40 font-semibold">#</div>
             {WEEK_DATES.map((date, i) => (
               <motion.div
                 key={date}
@@ -549,8 +551,8 @@ export default function SchedulePage() {
 
           {/* Task grid rows */}
           {loading ? (
-            <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(7, minmax(0, 1fr))" }}>
-              {Array.from({ length: 7 * 3 }).map((_, i) => (
+            <div className="grid gap-2" style={{ gridTemplateColumns: "52px repeat(7, minmax(0, 1fr))" }}>
+              {Array.from({ length: 8 * 3 }).map((_, i) => (
                 <div key={i} className="glass rounded-xl h-14 animate-pulse" />
               ))}
             </div>
@@ -560,8 +562,11 @@ export default function SchedulePage() {
                 <div
                   key={rowIdx}
                   className="grid gap-2"
-                  style={{ gridTemplateColumns: "repeat(7, minmax(0, 1fr))" }}
+                  style={{ gridTemplateColumns: "52px repeat(7, minmax(0, 1fr))" }}
                 >
+                  <div className="glass rounded-xl min-h-[56px] flex items-center justify-center text-xs text-white/35 font-semibold">
+                    {rowIdx + 1}
+                  </div>
                   {WEEK_DATES.map((date, colIdx) => {
                     const dayTasks = tasksByDay[date] ?? [];
                     const task = dayTasks[rowIdx];
@@ -602,6 +607,20 @@ export default function SchedulePage() {
                   })}
                 </div>
               ))}
+
+              <div className="pt-2 flex justify-center">
+                <button
+                  onClick={() => setExtraRows((r) => r + 1)}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold transition-all active:scale-95"
+                  style={{
+                    background: "rgba(96,165,250,0.14)",
+                    border: "1px solid rgba(96,165,250,0.28)",
+                    color: "rgba(147,197,253,1)",
+                  }}
+                >
+                  Add Row
+                </button>
+              </div>
             </div>
           )}
         </div>
