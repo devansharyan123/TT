@@ -157,8 +157,8 @@ export function signupWithEmail(email: string, password: string, displayName?: s
   return postAuth("/auth/signup/email", { email, password, displayName });
 }
 
-export async function getGoogleAuthUrl(redirectTo: string): Promise<string> {
-  const state = encodeURIComponent(JSON.stringify({ redirectTo }));
+export async function getGoogleAuthUrl(redirectTo: string, next: string = "/today"): Promise<string> {
+  const state = encodeURIComponent(JSON.stringify({ redirectTo, next }));
   let res: Response;
   try {
     res = await fetch(`${BASE}/auth/google/start?state=${state}`);

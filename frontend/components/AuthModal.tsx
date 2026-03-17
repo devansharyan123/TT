@@ -62,7 +62,7 @@ export default function AuthModal({
     setError(null);
     try {
       const callbackUrl = `${window.location.origin}/auth/callback`;
-      const authUrl = await getGoogleAuthUrl(callbackUrl);
+      const authUrl = await getGoogleAuthUrl(callbackUrl, "/today");
       window.location.href = authUrl;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Google login failed");
@@ -72,13 +72,13 @@ export default function AuthModal({
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center px-4">
-      <div className="absolute inset-0 bg-black/65" onClick={onClose} />
+      <div className="absolute inset-0 modal-backdrop" onClick={onClose} />
 
       <motion.div
         initial={{ opacity: 0, y: 20, scale: 0.96 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ duration: 0.28 }}
-        className="relative w-full max-w-md glass-strong rounded-3xl p-6"
+        className="relative w-full max-w-md modal-surface rounded-3xl p-6"
       >
         <div className="flex items-center justify-between">
           <p className="text-lg font-semibold text-white">{mode === "login" ? "Welcome Back" : "Create Account"}</p>

@@ -221,8 +221,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
       {showCreate && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-          <div className="absolute inset-0 bg-black/60" onClick={() => setShowCreate(false)} />
-          <div className="relative glass-strong rounded-2xl p-5 w-full max-w-sm">
+          <div className="absolute inset-0 modal-backdrop" onClick={() => setShowCreate(false)} />
+          <div className="relative modal-surface rounded-2xl p-5 w-full max-w-sm">
             <div className="flex items-center justify-between mb-3">
               <p className="text-sm font-semibold text-white">Create Task Section</p>
               <button onClick={() => setShowCreate(false)} className="text-white/40">
@@ -253,8 +253,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
       {deletingSection && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-          <div className="absolute inset-0 bg-black/60" onClick={() => setDeletingSection(null)} />
-          <div className="relative glass-strong rounded-2xl p-5 w-full max-w-sm">
+          <div className="absolute inset-0 modal-backdrop" onClick={() => setDeletingSection(null)} />
+          <div className="relative modal-surface rounded-2xl p-5 w-full max-w-sm">
             <p className="text-sm font-semibold text-white mb-2">Delete Section</p>
             <p className="text-xs text-white/55 mb-3">
               Type <span className="text-rose-200 font-semibold">{deletingSection}</span> to confirm deletion.

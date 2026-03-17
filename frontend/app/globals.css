@@ -39,6 +39,20 @@ body {
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5), inset 0 0 0 1px rgba(255,255,255,0.08);
 }
 
+.modal-backdrop {
+  background: rgba(2, 6, 16, 0.8);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.modal-surface {
+  background: rgba(6, 12, 24, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: 0 24px 72px rgba(0, 0, 0, 0.62), inset 0 0 0 1px rgba(255,255,255,0.06);
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+}
+
 /* Completed task dimmed + dashed text */
 .task-completed {
   opacity: 0.5;

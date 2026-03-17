@@ -1,23 +1,31 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { saveSession } from "@/lib/auth-client";
+import { getStoredSession, saveSession } from "@/lib/auth-client";
 
-function decodeState(state: string | null): { redirectTo?: string } {
+function decodeState(state: string | null): { redirectTo?: string; next?: string } {
   if (!state) return {};
   try {
     const decoded = decodeURIComponent(state);
-    return JSON.parse(decoded) as { redirectTo?: string };
+    return JSON.parse(decoded) as { redirectTo?: string; next?: string };
   } catch {
     return {};
   }
 }
 
+function resolvePostAuthPath(state: string | null): string {
+  const parsedState = decodeState(state);
+  const candidate = (parsedState.next || parsedState.redirectTo || "").trim();
+  if (!candidate) return "/today";
+  if (candidate.startsWith("/auth/callback")) return "/today";
+  if (!candidate.startsWith("/")) return "/today";
+  return candidate;
+}
+
 function GoogleAuthCallbackInner() {
   const params = useSearchParams();
   const router = useRouter();
-  const [error, setError] = useState<string | null>(null);
 
   const payload = useMemo(() => {
     const accessToken = params.get("accessToken");
@@ -31,7 +39,14 @@ function GoogleAuthCallbackInner() {
 
   useEffect(() => {
     if (!payload.accessToken || !payload.refreshToken || !payload.id) {
-      setError("Missing Google auth payload. Please try again.");
+      const existingSession = getStoredSession();
+      if (existingSession?.accessToken && existingSession?.refreshToken && existingSession.user?.id) {
+        router.replace(resolvePostAuthPath(payload.state));
+        return;
+      }
+
+      // Handle stale callback links gracefully.
+      router.replace("/today");
       return;
     }
 
@@ -45,8 +60,7 @@ function GoogleAuthCallbackInner() {
       },
     });
 
-    const parsedState = decodeState(payload.state);
-    router.replace(parsedState.redirectTo || "/today");
+    router.replace(resolvePostAuthPath(payload.state));
   }, [payload, router]);
 
   return (
@@ -54,7 +68,6 @@ function GoogleAuthCallbackInner() {
       <div className="glass-strong rounded-2xl p-5 max-w-md w-full">
         <p className="text-lg font-semibold text-white">Signing you in...</p>
         <p className="text-sm text-white/55 mt-1">Please wait while we complete Google authentication.</p>
-        {error && <p className="text-xs text-rose-300 mt-3">{error}</p>}
       </div>
     </main>
   );
