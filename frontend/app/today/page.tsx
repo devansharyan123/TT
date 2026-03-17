@@ -74,10 +74,19 @@ function getPastIsoDates(days: number): string[] {
   return Array.from({ length: days }, (_, i) => isoOffset(-i)).reverse();
 }
 
+function completionWeight(task: Task): number {
+  if (task.type === "quantity") return task.completed ? 1 : 0;
+  if (task.completed) return 1;
+
+  const allocatedSeconds = Math.max(1, (task.allocatedMinutes ?? 45) * 60);
+  const elapsedSeconds = task.elapsedSeconds ?? 0;
+  return elapsedSeconds >= allocatedSeconds * 0.5 ? 0.5 : 0;
+}
+
 function completionPercentForTasks(dayTasks: Task[]): number {
   if (dayTasks.length === 0) return 0;
-  const completed = dayTasks.filter((t) => t.completed).length;
-  return Math.min(100, Math.round((completed / dayTasks.length) * 100));
+  const totalWeight = dayTasks.reduce((sum, task) => sum + completionWeight(task), 0);
+  return Math.min(100, Math.round((totalWeight / dayTasks.length) * 100));
 }
 
 function sortByScheduledTime(items: Task[]): Task[] {
@@ -108,7 +117,8 @@ function writeStreakState(section: string, state: StreakState) {
 function computeSummary(tasks: Task[]): DailySummary {
   const total = tasks.length;
   const completed = tasks.filter((t) => t.completed).length;
-  const raw = total > 0 ? Math.round((completed / total) * 100) : 0;
+  const weightedComplete = tasks.reduce((sum, task) => sum + completionWeight(task), 0);
+  const raw = total > 0 ? Math.round((weightedComplete / total) * 100) : 0;
   return {
     date: todayISO,
     totalTasks: total,
