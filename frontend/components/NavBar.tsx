@@ -14,18 +14,18 @@ export default function NavBar() {
   const pathname = usePathname();
 
   return (
-    <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
+    <nav className="fixed bottom-3 sm:bottom-6 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-1.5rem)] max-w-md px-1">
       <div
-        className="glass-strong flex items-center gap-1 px-2 py-2 rounded-2xl"
+        className="glass-strong flex items-center justify-between gap-1 px-2 py-2 rounded-2xl"
         style={{ boxShadow: "0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.06)" }}
       >
         {links.map(({ href, label, icon: Icon }) => {
           const active = pathname === href;
           return (
-            <Link key={href} href={href}>
+            <Link key={href} href={href} className="flex-1">
               <motion.div
                 whileTap={{ scale: 0.93 }}
-                className="relative flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors duration-150"
+                className="relative flex items-center justify-center gap-2 px-3 sm:px-4 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-colors duration-150"
                 style={{
                   color: active ? "rgba(255,255,255,0.95)" : "rgba(255,255,255,0.35)",
                 }}

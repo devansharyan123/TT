@@ -224,7 +224,7 @@ function EditWeekTaskModal({
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: 24, scale: 0.97 }}
         transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
-        className="relative w-full max-w-md modal-surface rounded-3xl overflow-hidden"
+        className="relative w-full max-w-md max-h-[90vh] overflow-y-auto modal-surface rounded-3xl"
         style={{ boxShadow: "0 24px 64px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.08)" }}
       >
         <div className="p-6 flex flex-col gap-4">
@@ -498,7 +498,7 @@ export default function SchedulePage() {
         initial={{ opacity: 0, y: -16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-        className="mb-6 flex items-end justify-between"
+        className="mb-6 flex flex-col sm:flex-row sm:items-end justify-between gap-3"
       >
         <div>
           <div className="flex items-center gap-2 text-white/35 text-xs uppercase tracking-widest mb-1.5">

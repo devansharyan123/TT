@@ -373,7 +373,7 @@ export default function TodayPage() {
   const circumference = 2 * Math.PI * 26;
 
   return (
-    <main className="min-h-screen px-4 py-10 max-w-xl mx-auto">
+    <main className="min-h-screen px-3 sm:px-4 lg:px-6 py-6 sm:py-10 max-w-4xl mx-auto">
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -16 }}
@@ -385,7 +385,7 @@ export default function TodayPage() {
           <CalendarDays size={12} />
           <span>{today}</span>
         </div>
-        <h1 className="text-3xl font-bold text-white tracking-tight">Today&apos;s Tasks</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Today&apos;s Tasks</h1>
 
         <motion.div
           key={`streak-${streak.current}`}
@@ -394,15 +394,15 @@ export default function TodayPage() {
           transition={{ duration: 0.35 }}
           className="glass rounded-2xl p-4 mt-4"
         >
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2 min-w-0">
               <Flame size={16} className="text-amber-300" />
               <div>
                 <p className="text-[11px] uppercase tracking-[0.2em] text-white/35">Current Streak</p>
                 <p className="text-xl font-bold text-white">{streak.current} day{streak.current === 1 ? "" : "s"}</p>
               </div>
             </div>
-            <div className="text-right">
+            <div className="text-left sm:text-right">
               <p className="text-xs text-white/35">Best: {streak.best}</p>
               <p className="text-xs text-emerald-300/90 flex items-center justify-end gap-1">
                 <Shield size={12} /> Saves: {streak.streakSaves}
@@ -426,7 +426,7 @@ export default function TodayPage() {
 
         {/* Daily summary card */}
         <motion.div
-          className="glass-strong rounded-2xl p-4 mt-5 flex items-center gap-5"
+          className="glass-strong rounded-2xl p-4 mt-5 flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-5"
           initial={{ opacity: 0, scale: 0.96 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.1, duration: 0.4 }}
@@ -453,9 +453,9 @@ export default function TodayPage() {
             </div>
           </div>
 
-          <div className="flex-1">
+          <div className="flex-1 w-full">
             <p className="text-xs text-white/40 mb-2">Daily Progress</p>
-            <div className="flex items-center gap-5">
+            <div className="flex flex-wrap items-center gap-4 sm:gap-5">
               <Stat icon={<Zap size={11} />} label="Active" value={activeTasks.length} color="rgba(96,165,250,0.9)" />
               <Stat icon={<CheckCircle2 size={11} />} label="Done" value={completedTasks.length} color="rgba(52,211,153,0.9)" />
               <Stat icon={<TrendingUp size={11} />} label="Total" value={summary.totalTasks} color="rgba(167,139,250,0.9)" />

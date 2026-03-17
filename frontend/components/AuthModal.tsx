@@ -78,7 +78,7 @@ export default function AuthModal({
         initial={{ opacity: 0, y: 20, scale: 0.96 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ duration: 0.28 }}
-        className="relative w-full max-w-md modal-surface rounded-3xl p-6"
+        className="relative w-full max-w-md max-h-[90vh] overflow-y-auto modal-surface rounded-3xl p-6"
       >
         <div className="flex items-center justify-between">
           <p className="text-lg font-semibold text-white">{mode === "login" ? "Welcome Back" : "Create Account"}</p>

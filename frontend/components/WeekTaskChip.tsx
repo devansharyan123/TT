@@ -39,7 +39,7 @@ export default function WeekTaskChip({ task, onClick }: WeekTaskChipProps) {
           )}
         </div>
         <span
-          className="text-xs font-semibold leading-tight"
+          className="text-[11px] sm:text-xs font-semibold leading-tight break-words"
           style={{
             color: task.completed ? "rgba(255,255,255,0.35)" : "rgba(255,255,255,0.9)",
             textDecoration: task.completed ? "line-through" : "none",
@@ -51,9 +51,9 @@ export default function WeekTaskChip({ task, onClick }: WeekTaskChipProps) {
       </div>
 
       {/* Meta row */}
-      <div className="flex items-center justify-between gap-1 flex-wrap">
+      <div className="flex items-center justify-between gap-1.5 flex-wrap">
         {task.scheduledTime && (
-          <span className="text-[10px] font-mono" style={{ color: "rgba(255,255,255,0.3)" }}>
+          <span className="text-[9px] sm:text-[10px] font-mono" style={{ color: "rgba(255,255,255,0.3)" }}>
             {task.endTime ? `${task.scheduledTime} - ${task.endTime}` : task.scheduledTime}
           </span>
         )}

@@ -32,7 +32,7 @@ export default function TaskCard({ task, index, onUpdate, onDelete }: TaskCardPr
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: -16, scale: 0.96 }}
       transition={{ duration: 0.35, delay: index * 0.07, ease: [0.22, 1, 0.36, 1] }}
-      className={`glass rounded-2xl p-5 transition-all duration-300 ${isCompleted ? "task-completed" : ""}`}
+      className={`group glass rounded-2xl p-4 sm:p-5 transition-all duration-300 ${isCompleted ? "task-completed" : ""}`}
       style={{
         borderLeft: `3px solid ${accentColor}`,
         boxShadow: isCompleted
@@ -41,8 +41,8 @@ export default function TaskCard({ task, index, onUpdate, onDelete }: TaskCardPr
       }}
     >
       {/* Header */}
-      <div className="flex items-start justify-between mb-4">
-        <div className="flex items-center gap-3">
+      <div className="flex items-start justify-between mb-4 gap-2">
+        <div className="flex items-start gap-2 sm:gap-3 min-w-0">
           <div
             className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
             style={{ background: accentBg, border: `1px solid ${accentColor}30` }}
@@ -54,7 +54,7 @@ export default function TaskCard({ task, index, onUpdate, onDelete }: TaskCardPr
             )}
           </div>
           <h3
-            className={`task-title font-semibold text-base leading-snug ${
+            className={`task-title font-semibold text-sm sm:text-base leading-snug break-words ${
               isCompleted ? "text-white/40" : "text-white"
             }`}
           >
@@ -73,7 +73,7 @@ export default function TaskCard({ task, index, onUpdate, onDelete }: TaskCardPr
         </div>
         <button
           onClick={() => onDelete(task.id)}
-          className="w-7 h-7 flex items-center justify-center rounded-lg opacity-0 group-hover:opacity-100 transition-all hover:opacity-100 active:scale-90"
+          className="w-7 h-7 flex items-center justify-center rounded-lg opacity-70 sm:opacity-0 sm:group-hover:opacity-100 transition-all hover:opacity-100 active:scale-90"
           style={{ background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.2)" }}
         >
           <Trash2 size={12} />

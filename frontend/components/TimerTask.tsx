@@ -163,10 +163,10 @@ export default function TimerTask({ task, onUpdate }: TimerTaskProps) {
   }
 
   return (
-    <div className="flex items-center gap-5">
+    <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 sm:gap-5">
       {/* SVG Arc Ring */}
-      <div className="relative flex-shrink-0" style={{ width: 128, height: 128 }}>
-        <svg width="128" height="128" viewBox="0 0 128 128">
+      <div className="relative flex-shrink-0 w-28 h-28 sm:w-32 sm:h-32">
+        <svg width="100%" height="100%" viewBox="0 0 128 128">
           {/* Background track */}
           <circle cx="64" cy="64" r={radius} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="8" />
           {/* Total progress ring (dim) */}
@@ -215,8 +215,8 @@ export default function TimerTask({ task, onUpdate }: TimerTaskProps) {
       </div>
 
       {/* Controls & info */}
-      <div className="flex flex-col gap-3 flex-1">
-        <div className="flex items-center gap-2">
+      <div className="flex flex-col gap-3 flex-1 w-full">
+        <div className="flex items-center gap-2 flex-wrap">
           <span className="text-xs text-white/40">
             {Math.floor(elapsed / 60)}m / {task.allocatedMinutes}m used
           </span>
@@ -252,7 +252,7 @@ export default function TimerTask({ task, onUpdate }: TimerTaskProps) {
         </div>
 
         {/* Buttons */}
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           {!isDone && (
             <button
               onClick={handleToggle}

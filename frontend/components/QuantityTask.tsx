@@ -31,7 +31,7 @@ export default function QuantityTask({ task, onUpdate }: QuantityTaskProps) {
       : "rgba(251,191,36,0.8)";
 
   return (
-    <div className="flex items-center gap-4">
+    <div className="flex flex-col sm:flex-row sm:items-center gap-4">
       {/* Progress bar section */}
       <div className="flex-1 flex flex-col gap-2.5">
         <div className="flex items-center justify-between text-sm">
@@ -64,7 +64,7 @@ export default function QuantityTask({ task, onUpdate }: QuantityTaskProps) {
         </div>
 
         {/* Quick +/- buttons */}
-        <div className="flex gap-2 mt-1">
+        <div className="flex gap-2 mt-1 flex-wrap">
           <button
             onClick={() => handleChange(Math.max(0, current - 1))}
             className="w-8 h-8 flex items-center justify-center rounded-lg transition-all active:scale-90"
@@ -103,7 +103,7 @@ export default function QuantityTask({ task, onUpdate }: QuantityTaskProps) {
             animate={{ opacity: 1, scale: 1, x: 0 }}
             exit={{ opacity: 0, scale: 0.9, x: 12 }}
             transition={{ duration: 0.2, ease: "easeOut" }}
-            className="flex flex-col items-center gap-1"
+            className="flex flex-col items-center gap-1 w-full sm:w-auto"
           >
             <span className="text-xs text-white/40 mb-1">{task.unit}</span>
             <NumberPicker
