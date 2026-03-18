@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronUp, ChevronDown } from "lucide-react";
+import { ChevronUp, ChevronDown, RotateCcw } from "lucide-react";
 import NumberPicker from "./NumberPicker";
 import { Task } from "@/lib/types";
 
@@ -23,6 +23,11 @@ export default function QuantityTask({ task, onUpdate }: QuantityTaskProps) {
     onUpdate({ currentQuantity: val, completed });
   };
 
+  const handleReset = () => {
+    onUpdate({ currentQuantity: 0, completed: false });
+    setShowPicker(false);
+  };
+
   const barColor =
     percent >= 100
       ? "rgba(52,211,153,0.9)"
@@ -31,7 +36,7 @@ export default function QuantityTask({ task, onUpdate }: QuantityTaskProps) {
       : "rgba(251,191,36,0.8)";
 
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+    <div className={`flex flex-col sm:flex-row sm:items-center gap-4 ${task.completed ? "opacity-70" : ""}`}>
       {/* Progress bar section */}
       <div className="flex-1 flex flex-col gap-2.5">
         <div className="flex items-center justify-between text-sm">
@@ -63,7 +68,7 @@ export default function QuantityTask({ task, onUpdate }: QuantityTaskProps) {
           />
         </div>
 
-        {/* Quick +/- buttons */}
+        {/* Quick +/- buttons and reset */}
         <div className="flex gap-2 mt-1 flex-wrap">
           <button
             onClick={() => handleChange(Math.max(0, current - 1))}
@@ -91,6 +96,20 @@ export default function QuantityTask({ task, onUpdate }: QuantityTaskProps) {
           >
             Set exact
           </button>
+          {(current > 0 || task.completed) && (
+            <button
+              onClick={handleReset}
+              className="flex items-center gap-1.5 px-3 h-8 rounded-lg text-xs transition-all active:scale-95"
+              style={{
+                background: "rgba(255,255,255,0.05)",
+                border: "1px solid rgba(255,255,255,0.12)",
+                color: "rgba(255,255,255,0.6)",
+              }}
+            >
+              <RotateCcw size={12} />
+              Reset
+            </button>
+          )}
         </div>
       </div>
 

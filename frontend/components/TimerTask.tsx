@@ -104,7 +104,7 @@ export default function TimerTask({ task, onUpdate }: TimerTaskProps) {
           <Target size={14} />
           Completed
         </button>
-        {progress > 0 && (
+        {(progress > 0 || task.completed) && (
           <button
             onClick={clearStatus}
             className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm transition-all duration-200 active:scale-95"

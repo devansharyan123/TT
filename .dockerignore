@@ -1,0 +1,25 @@
+# Git and editor
+.git
+.gitignore
+.vscode
+
+# Dependencies
+node_modules
+**/node_modules
+
+# Build output
+**/dist
+**/.next
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Env files
+.env
+**/.env
+**/.env.*
+
+# Misc
+README.md

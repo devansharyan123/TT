@@ -81,26 +81,19 @@ export default function TaskCard({ task, index, onUpdate, onDelete }: TaskCardPr
       </div>
 
       {/* Task body */}
-      {!isCompleted || isTimed ? (
-        <div className={isCompleted ? "pointer-events-none" : ""}>
-          {isTimed ? (
-            <TimerTask
-              task={task}
-              onUpdate={(updates) => onUpdate(task.id, updates)}
-            />
-          ) : (
-            <QuantityTask
-              task={task}
-              onUpdate={(updates) => onUpdate(task.id, updates)}
-            />
-          )}
-        </div>
-      ) : (
-        <p className="text-sm text-white/30">
-          {!isTimed &&
-            `${task.currentQuantity} / ${task.targetQuantity} ${task.unit} completed`}
-        </p>
-      )}
+      <div>
+        {isTimed ? (
+          <TimerTask
+            task={task}
+            onUpdate={(updates) => onUpdate(task.id, updates)}
+          />
+        ) : (
+          <QuantityTask
+            task={task}
+            onUpdate={(updates) => onUpdate(task.id, updates)}
+          />
+        )}
+      </div>
     </motion.div>
   );
 }

@@ -74,19 +74,35 @@ function getPastIsoDates(days: number): string[] {
   return Array.from({ length: days }, (_, i) => isoOffset(-i)).reverse();
 }
 
-function completionWeight(task: Task): number {
-  if (task.type === "quantity") return task.completed ? 1 : 0;
-  if (task.completed) return 1;
-
-  const allocatedSeconds = Math.max(1, (task.allocatedMinutes ?? 45) * 60);
-  const elapsedSeconds = task.elapsedSeconds ?? 0;
-  return elapsedSeconds >= allocatedSeconds * 0.5 ? 0.5 : 0;
-}
-
 function completionPercentForTasks(dayTasks: Task[]): number {
   if (dayTasks.length === 0) return 0;
-  const totalWeight = dayTasks.reduce((sum, task) => sum + completionWeight(task), 0);
-  return Math.min(100, Math.round((totalWeight / dayTasks.length) * 100));
+
+  const timedTasks = dayTasks.filter((t) => t.type === "timed" && (t.allocatedMinutes ?? 0) > 0);
+  const quantityTasks = dayTasks.filter((t) => t.type === "quantity");
+
+  const timedMinutes = timedTasks.reduce((sum, t) => sum + (t.allocatedMinutes ?? 0), 0);
+  const quantityPoolMinutes = quantityTasks.length > 0 ? timedMinutes * 0.2 : 0;
+  const totalWorkMinutes = timedMinutes + quantityPoolMinutes;
+
+  if (totalWorkMinutes <= 0) return 0;
+
+  const timedCompletedMinutes = timedTasks.reduce((sum, t) => {
+    return t.completed ? sum + (t.allocatedMinutes ?? 0) : sum;
+  }, 0);
+
+  let percent = (timedCompletedMinutes / totalWorkMinutes) * 100;
+
+  if (quantityTasks.length > 0 && quantityPoolMinutes > 0) {
+    const quantityProgressSum = quantityTasks.reduce((sum, t) => {
+      const target = Math.max(1, t.targetQuantity ?? 1);
+      const ratio = Math.max(0, Math.min(1, (t.currentQuantity ?? 0) / target));
+      return sum + ratio;
+    }, 0);
+    const quantityProgressRatio = quantityProgressSum / quantityTasks.length;
+    percent += ((quantityPoolMinutes / totalWorkMinutes) * 100) * quantityProgressRatio;
+  }
+
+  return Math.min(100, Math.round(percent));
 }
 
 function sortByScheduledTime(items: Task[]): Task[] {
@@ -117,8 +133,7 @@ function writeStreakState(section: string, state: StreakState) {
 function computeSummary(tasks: Task[]): DailySummary {
   const total = tasks.length;
   const completed = tasks.filter((t) => t.completed).length;
-  const weightedComplete = tasks.reduce((sum, task) => sum + completionWeight(task), 0);
-  const raw = total > 0 ? Math.round((weightedComplete / total) * 100) : 0;
+  const raw = completionPercentForTasks(tasks);
   return {
     date: todayISO,
     totalTasks: total,
