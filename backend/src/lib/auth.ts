@@ -40,8 +40,8 @@ function accessTokenExpirySeconds(): number {
 }
 
 function refreshTokenExpiryDays(): number {
-  const raw = Number(process.env.JWT_REFRESH_EXPIRES_DAYS || "30");
-  return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : 30;
+  const raw = Number(process.env.JWT_REFRESH_EXPIRES_DAYS || "7");
+  return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : 7;
 }
 
 function accessSecret(): string {

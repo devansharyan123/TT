@@ -6,7 +6,7 @@ import { Plus, CalendarRange, Zap, X, Clock, Hash } from "lucide-react";
 import WeekTaskChip from "@/components/WeekTaskChip";
 import CreateWeekTaskModal, { WeekCreationResult } from "../../components/CreateWeekTaskModal";
 import { Task } from "@/lib/types";
-import { fetchWeekTasks, createTasksBulk, deleteTask, updateTask } from "@/lib/api";
+import { fetchTimetableTasks, createTasksBulk, deleteTask, updateTask } from "@/lib/api";
 import { getSelectedSection, SECTION_EVENT } from "@/lib/sections";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 
@@ -388,7 +388,7 @@ export default function SchedulePage() {
 
   const loadAll = useCallback(async () => {
     try {
-      const scoped = await fetchWeekTasks(WEEK_DATES, selectedSection);
+      const scoped = await fetchTimetableTasks(WEEK_DATES, selectedSection);
       const byDay: Record<string, Task[]> = Object.fromEntries(WEEK_DATES.map((d) => [d, []]));
       for (const t of scoped) {
         if (byDay[t.date]) byDay[t.date].push(t);
@@ -425,6 +425,8 @@ export default function SchedulePage() {
       endTime: draft.endTime,
       tags: draft.tags,
       date: WEEK_DATES[dayIdx],
+      isRecurring: true,
+      weekday: dayIdx,
       section: selectedSection,
       ...(draft.type === "quantity" ? { currentQuantity: 0 } : {}),
     }));

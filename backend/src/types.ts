@@ -19,6 +19,8 @@ export interface Task {
   // Shared
   completed: boolean;
   date: string; // YYYY-MM-DD
+  isRecurring?: boolean;
+  weekday?: number;
   section?: string;
 }
 

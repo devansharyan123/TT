@@ -25,6 +25,9 @@ function toTimerState(value) {
     const allowed = ["idle", "running", "paused", "break", "done"];
     return allowed.includes(value) ? value : "idle";
 }
+function toWeekday(value) {
+    return value !== undefined && Number.isInteger(value) && value >= 0 && value <= 6 ? value : undefined;
+}
 function serializeTask(task) {
     return {
         id: task.id,
@@ -41,6 +44,8 @@ function serializeTask(task) {
         tags: task.tags,
         completed: task.completed,
         date: task.date.toISOString().split("T")[0],
+        isRecurring: task.isRecurring,
+        weekday: task.weekday ?? undefined,
         section: task.section.name,
     };
 }
@@ -108,6 +113,30 @@ router.get("/", async (req, res) => {
         res.status(500).json({ error: "Failed to fetch tasks", detail: String(error) });
     }
 });
+// GET /api/tasks/timetable?dates=YYYY-MM-DD,...&section=Work
+router.get("/timetable", async (req, res) => {
+    try {
+        const user = await resolveUser(req);
+        const dates = String(req.query.dates || "").split(",").filter(Boolean).slice(0, 7);
+        const sectionName = req.query.section || DEFAULT_SECTION_NAME;
+        const section = await resolveSection(user.id, sectionName);
+        const templates = await prisma_1.prisma.task.findMany({
+            where: { userId: user.id, sectionId: section.id, isRecurring: true },
+            include: { section: true },
+            orderBy: { createdAt: "asc" },
+        });
+        const projected = templates.flatMap((task) => {
+            if (task.weekday === null)
+                return [];
+            const date = dates[task.weekday];
+            return date ? [{ ...serializeTask(task), date }] : [];
+        });
+        res.json(projected);
+    }
+    catch (error) {
+        res.status(500).json({ error: "Failed to fetch timetable", detail: String(error) });
+    }
+});
 // POST /api/tasks/bulk
 router.post("/bulk", async (req, res) => {
     try {
@@ -151,6 +180,8 @@ router.post("/bulk", async (req, res) => {
                         tags: t.tags ?? [],
                         completed: t.completed ?? false,
                         date: toDayStart(dateIso),
+                        isRecurring: t.isRecurring ?? false,
+                        weekday: t.weekday,
                     },
                     include: { section: true },
                 });
@@ -188,6 +219,8 @@ router.post("/", async (req, res) => {
                 tags: body.tags ?? [],
                 completed: body.completed ?? false,
                 date: toDayStart(dateIso),
+                isRecurring: body.isRecurring ?? false,
+                weekday: body.weekday,
             },
             include: { section: true },
         });
@@ -231,6 +264,8 @@ router.patch("/:id", async (req, res) => {
                 ...(updates.tags !== undefined ? { tags: updates.tags } : {}),
                 ...(updates.completed !== undefined ? { completed: updates.completed } : {}),
                 ...(updates.date !== undefined ? { date: toDayStart(updates.date) } : {}),
+                ...(updates.isRecurring !== undefined ? { isRecurring: updates.isRecurring } : {}),
+                ...(updates.weekday !== undefined ? { weekday: toWeekday(updates.weekday) } : {}),
                 ...(nextSectionId ? { sectionId: nextSectionId } : {}),
             },
             include: { section: true },
@@ -276,16 +311,46 @@ router.get("/summary", async (req, res) => {
                     lt: toDayEndExclusive(dateIso),
                 },
             },
-            select: { completed: true },
+            select: {
+                id: true,
+                type: true,
+                completed: true,
+                allocatedMinutes: true,
+                targetQuantity: true,
+                currentQuantity: true,
+            },
         });
-        const total = dayTasks.length;
-        const completed = dayTasks.filter((t) => t.completed).length;
-        const raw = total > 0 ? Math.round((completed / total) * 100) : 0;
+        // Progress model:
+        // - Timed work pool = sum of scheduled timed minutes
+        // - Quantity pool = 20% of timed pool (shared across all quantity tasks)
+        const timedTasks = dayTasks.filter((t) => t.type === "timed" && (t.allocatedMinutes ?? 0) > 0);
+        const quantityTasks = dayTasks.filter((t) => t.type === "quantity");
+        const timedMinutes = timedTasks.reduce((sum, t) => sum + (t.allocatedMinutes ?? 0), 0);
+        const quantityPoolMinutes = quantityTasks.length > 0 ? timedMinutes * 0.2 : 0;
+        const totalWorkMinutes = timedMinutes + quantityPoolMinutes;
+        let totalWorkPercent = 0;
+        const totalTasks = dayTasks.length;
+        const completedTasks = dayTasks.filter((t) => t.completed).length;
+        if (totalWorkMinutes > 0) {
+            const timedCompletedMinutes = timedTasks.reduce((sum, t) => {
+                return t.completed ? sum + (t.allocatedMinutes ?? 0) : sum;
+            }, 0);
+            totalWorkPercent += (timedCompletedMinutes / totalWorkMinutes) * 100;
+            if (quantityTasks.length > 0 && quantityPoolMinutes > 0) {
+                const quantityProgressSum = quantityTasks.reduce((sum, t) => {
+                    const target = Math.max(1, t.targetQuantity ?? 1);
+                    const ratio = Math.max(0, Math.min(1, (t.currentQuantity ?? 0) / target));
+                    return sum + ratio;
+                }, 0);
+                const quantityProgressRatio = quantityProgressSum / quantityTasks.length;
+                totalWorkPercent += ((quantityPoolMinutes / totalWorkMinutes) * 100) * quantityProgressRatio;
+            }
+        }
         res.json({
             date: dateIso,
-            totalTasks: total,
-            completedTasks: completed,
-            completionPercent: Math.min(100, raw),
+            totalTasks,
+            completedTasks,
+            completionPercent: Math.min(100, Math.round(totalWorkPercent)),
         });
     }
     catch (error) {

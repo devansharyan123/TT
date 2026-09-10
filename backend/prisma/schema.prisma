@@ -114,6 +114,8 @@ model Task {
   tags            String[]      @default([])
   completed       Boolean       @default(false)
   date            DateTime
+  isRecurring     Boolean       @default(false)
+  weekday         Int?
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 
@@ -122,6 +124,7 @@ model Task {
 
   @@index([userId, sectionId, date])
   @@index([sectionId, date])
+  @@index([userId, sectionId, isRecurring, weekday])
   @@index([sectionId, title])
 }
 

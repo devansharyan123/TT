@@ -10,6 +10,7 @@ const BASE = normalizeApiBase(process.env.NEXT_PUBLIC_API_URL);
 export const AUTH_EVENT = "tt:auth-changed";
 
 const SESSION_KEY = "tt.auth.session.v1";
+let refreshInFlight: Promise<string | null> | null = null;
 
 export interface AuthUser {
   id: string;
@@ -80,6 +81,16 @@ function asNetworkError(err: unknown): Error {
 }
 
 async function refreshAccessToken(): Promise<string | null> {
+  if (refreshInFlight) return refreshInFlight;
+  refreshInFlight = refreshAccessTokenOnce();
+  try {
+    return await refreshInFlight;
+  } finally {
+    refreshInFlight = null;
+  }
+}
+
+async function refreshAccessTokenOnce(): Promise<string | null> {
   const existing = getStoredSession();
   if (!existing?.refreshToken) return null;
 

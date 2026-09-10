@@ -32,6 +32,10 @@ function toTimerState(value?: string): TimerState {
   return allowed.includes(value as TimerState) ? (value as TimerState) : "idle";
 }
 
+function toWeekday(value?: number): number | undefined {
+  return value !== undefined && Number.isInteger(value) && value >= 0 && value <= 6 ? value : undefined;
+}
+
 function serializeTask(task: Prisma.TaskGetPayload<{ include: { section: true } }>): Task {
   return {
     id: task.id,
@@ -48,6 +52,8 @@ function serializeTask(task: Prisma.TaskGetPayload<{ include: { section: true } 
     tags: task.tags,
     completed: task.completed,
     date: task.date.toISOString().split("T")[0],
+    isRecurring: task.isRecurring,
+    weekday: task.weekday ?? undefined,
     section: task.section.name,
   };
 }
@@ -121,6 +127,29 @@ router.get("/", async (req: Request, res: Response) => {
   }
 });
 
+// GET /api/tasks/timetable?dates=YYYY-MM-DD,...&section=Work
+router.get("/timetable", async (req: Request, res: Response) => {
+  try {
+    const user = await resolveUser(req);
+    const dates = String(req.query.dates || "").split(",").filter(Boolean).slice(0, 7);
+    const sectionName = (req.query.section as string | undefined) || DEFAULT_SECTION_NAME;
+    const section = await resolveSection(user.id, sectionName);
+    const templates = await prisma.task.findMany({
+      where: { userId: user.id, sectionId: section.id, isRecurring: true },
+      include: { section: true },
+      orderBy: { createdAt: "asc" },
+    });
+    const projected = templates.flatMap((task) => {
+      if (task.weekday === null) return [];
+      const date = dates[task.weekday];
+      return date ? [{ ...serializeTask(task), date }] : [];
+    });
+    res.json(projected);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to fetch timetable", detail: String(error) });
+  }
+});
+
 // POST /api/tasks/bulk
 router.post("/bulk", async (req: Request, res: Response) => {
   try {
@@ -168,6 +197,8 @@ router.post("/bulk", async (req: Request, res: Response) => {
             tags: t.tags ?? [],
             completed: t.completed ?? false,
             date: toDayStart(dateIso),
+            isRecurring: t.isRecurring ?? false,
+            weekday: t.weekday,
           },
           include: { section: true },
         });
@@ -209,6 +240,8 @@ router.post("/", async (req: Request, res: Response) => {
         tags: body.tags ?? [],
         completed: body.completed ?? false,
         date: toDayStart(dateIso),
+        isRecurring: body.isRecurring ?? false,
+        weekday: body.weekday,
       },
       include: { section: true },
     });
@@ -257,6 +290,8 @@ router.patch("/:id", async (req: Request, res: Response) => {
         ...(updates.tags !== undefined ? { tags: updates.tags } : {}),
         ...(updates.completed !== undefined ? { completed: updates.completed } : {}),
         ...(updates.date !== undefined ? { date: toDayStart(updates.date) } : {}),
+        ...(updates.isRecurring !== undefined ? { isRecurring: updates.isRecurring } : {}),
+        ...(updates.weekday !== undefined ? { weekday: toWeekday(updates.weekday) } : {}),
         ...(nextSectionId ? { sectionId: nextSectionId } : {}),
       },
       include: { section: true },

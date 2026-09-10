@@ -23,6 +23,14 @@ export async function fetchWeekTasks(dates: string[], section?: string): Promise
   return tasks;
 }
 
+export async function fetchTimetableTasks(dates: string[], section?: string): Promise<Task[]> {
+  const query = new URLSearchParams({ dates: dates.join(",") });
+  if (section) query.set("section", section);
+  const res = await authFetch(`${BASE}/tasks/timetable?${query.toString()}`, { cache: "no-store" });
+  if (!res.ok) throw new Error("Failed to fetch timetable");
+  return res.json();
+}
+
 export async function updateTask(id: string, updates: Partial<Task>): Promise<Task> {
   const res = await authFetch(`${BASE}/tasks/${id}`, {
     method: "PATCH",
