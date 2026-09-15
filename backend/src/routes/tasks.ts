@@ -2,8 +2,10 @@ import { Router, Request, Response } from "express";
 import { Prisma, TaskType, TimerState } from "@prisma/client";
 import { prisma } from "../lib/prisma";
 import { Task } from "../types";
+import { requireAuth } from "../middleware/auth";
 
 const router = Router();
+router.use(requireAuth);
 
 const DEFAULT_USER_EMAIL = process.env.DEFAULT_USER_EMAIL || "demo@tasktracker.local";
 const DEFAULT_SECTION_NAME = "Work";
@@ -134,17 +136,103 @@ router.get("/timetable", async (req: Request, res: Response) => {
     const dates = String(req.query.dates || "").split(",").filter(Boolean).slice(0, 7);
     const sectionName = (req.query.section as string | undefined) || DEFAULT_SECTION_NAME;
     const section = await resolveSection(user.id, sectionName);
-    const templates = await prisma.task.findMany({
+
+    const dateTasks = await prisma.task.findMany({
+      where: {
+        userId: user.id,
+        sectionId: section.id,
+        date: {
+          gte: dates.length > 0 ? toDayStart(dates[0]) : new Date(0),
+          lt: dates.length > 0 ? toDayEndExclusive(dates[dates.length - 1]) : new Date(0),
+        },
+      },
+      include: { section: true },
+      orderBy: [{ date: "asc" }, { scheduledTime: "asc" }, { createdAt: "asc" }],
+    });
+
+    // Recurring tasks are stored as date-specific occurrences. Create the
+    // missing occurrences for this week so completion never leaks forward.
+    const recurringTasks = await prisma.task.findMany({
       where: { userId: user.id, sectionId: section.id, isRecurring: true },
       include: { section: true },
       orderBy: { createdAt: "asc" },
     });
-    const projected = templates.flatMap((task) => {
-      if (task.weekday === null) return [];
-      const date = dates[task.weekday];
-      return date ? [{ ...serializeTask(task), date }] : [];
-    });
-    res.json(projected);
+
+    const definitions = new Map<string, (typeof recurringTasks)[number]>();
+    for (const task of recurringTasks) {
+      if (task.weekday === null) continue;
+      const key = JSON.stringify([
+        task.weekday,
+        task.title,
+        task.type,
+        task.allocatedMinutes,
+        task.targetQuantity,
+        task.unit,
+        task.scheduledTime,
+        task.endTime,
+        task.tags,
+      ]);
+      if (!definitions.has(key)) definitions.set(key, task);
+    }
+
+    const existingByDate = new Map<string, typeof dateTasks>();
+    for (const task of dateTasks) {
+      const date = task.date.toISOString().split("T")[0];
+      const tasks = existingByDate.get(date) ?? [];
+      tasks.push(task);
+      existingByDate.set(date, tasks);
+    }
+
+    const missingOccurrences: Prisma.TaskCreateArgs["data"][] = [];
+    for (const date of dates) {
+      const existing = existingByDate.get(date) ?? [];
+      const existingKeys = new Set(
+        existing
+          .filter((task) => task.isRecurring && task.weekday !== null)
+          .map((task) => JSON.stringify([
+            task.weekday,
+            task.title,
+            task.type,
+            task.allocatedMinutes,
+            task.targetQuantity,
+            task.unit,
+            task.scheduledTime,
+            task.endTime,
+            task.tags,
+          ]))
+      );
+      const weekday = new Date(`${date}T00:00:00.000Z`).getUTCDay();
+      for (const [key, source] of definitions) {
+        if (source.weekday !== (weekday + 6) % 7 || existingKeys.has(key)) continue;
+        missingOccurrences.push({
+          userId: user.id,
+          sectionId: section.id,
+          title: source.title,
+          type: source.type,
+          allocatedMinutes: source.allocatedMinutes,
+          elapsedSeconds: 0,
+          timerState: "idle",
+          targetQuantity: source.targetQuantity,
+          currentQuantity: 0,
+          unit: source.unit,
+          scheduledTime: source.scheduledTime,
+          endTime: source.endTime,
+          tags: source.tags,
+          completed: false,
+          date: toDayStart(date),
+          isRecurring: true,
+          weekday: source.weekday,
+        });
+      }
+    }
+
+    const created = missingOccurrences.length > 0
+      ? await prisma.$transaction(
+          missingOccurrences.map((data) => prisma.task.create({ data, include: { section: true } }))
+        )
+      : [];
+
+    res.json([...dateTasks, ...created].map(serializeTask));
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch timetable", detail: String(error) });
   }
